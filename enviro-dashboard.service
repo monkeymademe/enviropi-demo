@@ -1,0 +1,16 @@
+[Unit]
+Description=Enviro+ Sensor Dashboard (Flask)
+After=network.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/envrio_demo
+ExecStart=/home/pi/envrio_demo/.venv/bin/python /home/pi/envrio_demo/web_app.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

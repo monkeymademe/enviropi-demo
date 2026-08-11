@@ -1,0 +1,17 @@
+[Unit]
+Description=Enviro+ / PMS5003 Sensor Collector
+After=network.target enviro-dashboard.service
+Wants=enviro-dashboard.service
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/envrio_demo
+ExecStart=/home/pi/envrio_demo/.venv/bin/python /home/pi/envrio_demo/sensor_collector.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

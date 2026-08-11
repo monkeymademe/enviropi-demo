@@ -1,0 +1,1177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enviro+ Sensor Dashboard</title>
+    <link rel="icon" href="{{ url_for('static', filename='favicon.webp') }}" type="image/webp">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        :root {
+            --bg-gradient-start: #3e91be;
+            --bg-gradient-end: #cd3c65;
+            --bg-color: #f8f8f8;
+            --card-bg: white;
+            --text-primary: #333;
+            --text-secondary: #666;
+            --text-muted: #999;
+            --text-white: white;
+            --border-color: #f0f0f0;
+            --stats-panel-bg: #f8f8f8;
+            --stat-box-bg: #f8f8f8;
+            --sleep-overlay-bg: rgba(0, 0, 0, 0.1);
+        }
+
+        [data-theme="dark"] {
+            --bg-gradient-start: #6b6a6a;
+            --bg-gradient-end: #cd3c65;
+            --bg-color: #0f1419;
+            --card-bg: #1a1f2e;
+            --text-primary: #e0e0e0;
+            --text-secondary: #b0b0b0;
+            --text-muted: #808080;
+            --text-white: #e0e0e0;
+            --border-color: #2a2f3e;
+            --stats-panel-bg: #1a1f2e;
+            --stat-box-bg: #0f1419;
+            --sleep-overlay-bg: rgba(255, 255, 255, 0.1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: var(--text-primary);
+            transition: background 0.3s ease;
+        }
+
+        html[data-theme="dark"] body {
+            background: linear-gradient(135deg, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 90%, var(--bg-gradient-end) 100%);
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+
+        .current-readings {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 15px;
+            margin-bottom: 40px;
+        }
+
+        .sensor-card {
+            background: var(--card-bg);
+            border-radius: 20px;
+            padding: 18px;
+            min-width: 0; /* Allows flex shrinking */
+            transition: background 0.3s ease;
+        }
+
+        .sensor-title {
+            font-size: 0.9em;
+            color: var(--text-secondary);
+            margin-bottom: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .sensor-value {
+            font-size: 1.75em;
+            font-weight: bold;
+            color: #6b6a6a;
+            margin-bottom: 10px;
+        }
+
+        .sensor-unit {
+            font-size: 0.6em;
+            color: var(--text-muted);
+            font-weight: normal;
+        }
+
+        .meter-container {
+            position: relative;
+            height: 100px;
+            margin-top: 15px;
+        }
+
+        .meter-bar {
+            width: 100%;
+            height: 30px;
+            background: var(--border-color);
+            border-radius: 15px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .meter-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #3e91be 0%, #cd3c65 100%);
+            border-radius: 15px;
+            transition: width 0.5s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .meter-fill::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(
+                90deg,
+                transparent 0%,
+                rgba(255,255,255,0.3) 50%,
+                transparent 100%
+            );
+            animation: shimmer 2s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        .meter-labels {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 8px;
+            font-size: 0.85em;
+            color: #666;
+        }
+
+        .historical-section {
+            background: var(--card-bg);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 20px;
+            transition: background 0.3s ease;
+        }
+
+        .section-title {
+            font-size: 1.8em;
+            color: var(--text-secondary);
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .time-selector {
+            display: flex;
+            gap: 10px;
+        }
+
+        .time-btn {
+            padding: 8px 16px;
+            border: 2px solid #cd3c65;
+            background: var(--card-bg);
+            color: #cd3c65;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.3em;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .time-btn:hover {
+            background: #cd3c65;
+            color: white;
+        }
+
+        .time-btn.active {
+            background: #cd3c65;
+            color: white;
+        }
+
+        .stats-panel {
+            background: var(--stats-panel-bg);
+            border-radius: 15px;
+            padding: 20px;
+            margin-top: 20px;
+            margin-bottom: 20px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 15px;
+            transition: background 0.3s ease;
+        }
+
+        .stat-item {
+            background: var(--card-bg);
+            padding: 15px;
+            border-radius: 10px;
+            transition: background 0.3s ease;
+        }
+
+        .stat-label {
+            font-size: 0.8em;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 12px;
+            font-weight: 600;
+            text-align: center;
+        }
+
+        .stat-values {
+            display: flex;
+            justify-content: space-between;
+            gap: 8px;
+        }
+
+        .stat-box {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 8px;
+            border-radius: 8px;
+            background: var(--stat-box-bg);
+            transition: background 0.3s ease;
+        }
+
+        .stat-box.min {
+            background: rgba(62, 145, 190, 0.1);
+        }
+
+        .stat-box.max {
+            background: rgba(205, 60, 101, 0.1);
+        }
+
+        .stat-box.avg {
+            background: rgba(107, 106, 106, 0.1);
+        }
+
+        .stat-value-label {
+            font-size: 0.65em;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 6px;
+            font-weight: 600;
+        }
+
+        .stat-value {
+            font-size: 0.9em;
+            color: #6b6a6a;
+            font-weight: 500;
+        }
+
+        .stat-box.min .stat-value-label {
+            color: #3e91be;
+        }
+
+        .stat-box.max .stat-value-label {
+            color: #cd3c65;
+        }
+
+        .stat-box.avg .stat-value-label {
+            color: #6b6a6a;
+        }
+
+        @media (max-width: 768px) {
+            .stats-panel {
+                grid-template-columns: 1fr;
+            }
+            
+            .stat-values {
+                gap: 6px;
+            }
+            
+            .stat-box {
+                padding: 6px;
+            }
+            
+            .stat-value {
+                font-size: 0.85em;
+            }
+        }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin-top: 20px;
+        }
+
+        .expand-button {
+            text-align: center;
+            margin-top: 15px;
+            cursor: pointer;
+            user-select: none;
+            transition: transform 0.3s ease;
+        }
+
+        .expand-button:hover {
+            opacity: 0.8;
+        }
+
+        .expand-button.expanded {
+            transform: rotate(180deg);
+        }
+
+        .expand-icon {
+            width: 24px;
+            height: 24px;
+            color: #6b6a6a;
+            display: inline-block;
+            transition: transform 0.3s ease;
+        }
+        
+        .expand-icon svg {
+            width: 100%;
+            height: 100%;
+            fill: currentColor;
+        }
+
+        .additional-charts {
+            display: none;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 2px solid var(--border-color);
+            transition: border-color 0.3s ease;
+        }
+
+        .additional-charts.expanded {
+            display: block;
+            margin-bottom: 50px;
+        }
+
+        .additional-chart-container {
+            position: relative;
+            height: 250px;
+            margin-bottom: 30px;
+        }
+
+        .additional-chart-container:last-child {
+            margin-bottom: 0;
+        }
+
+        .chart-title {
+            font-size: 1.2em;
+            color: var(--text-primary);
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+
+        h1 {
+            text-align: center;
+            color: var(--text-white);
+            margin-bottom: 30px;
+            font-size: 2.5em;
+        }
+
+        .theme-toggle {
+            position: fixed;
+            top: calc(20px + 1.25em);
+            right: 20px;
+            background: transparent;
+            border: none;
+            padding: 0;
+            width: auto;
+            height: auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: opacity 0.3s ease;
+            z-index: 1000;
+            transform: translateY(-50%);
+        }
+
+        .theme-toggle:hover {
+            opacity: 0.7;
+        }
+
+        .theme-toggle svg {
+            width: 28px;
+            height: 28px;
+            fill: white;
+        }
+
+    </style>
+</head>
+
+<body>
+    <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" aria-label="Toggle dark mode">
+        <svg id="themeIcon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16">
+            <path d="M6 .278a.77.77 0 0 1 .08.858 7.2 7.2 0 0 0-.878 3.46c0 4.021 3.278 7.277 7.318 7.277q.792-.001 1.533-.16a.79.79 0 0 1 .81.316.73.73 0 0 1-.031.893A8.35 8.35 0 0 1 8.344 16C3.734 16 0 12.286 0 7.71 0 4.266 2.114 1.312 5.124.06A.75.75 0 0 1 6 .278"/>
+        </svg>
+    </button>
+
+    <div class="container">
+        <h1>Enviro+ Sensor Dashboard</h1>
+
+        <div class="current-readings">
+            <div class="sensor-card">
+                <div class="sensor-title">Temperature</div>
+                <div class="sensor-value">
+                    <span id="tempValue">--</span>
+                    <span class="sensor-unit">°C</span>
+                </div>
+                <div class="meter-container">
+                    <div class="meter-bar">
+                        <div class="meter-fill" id="tempMeter" style="width: 0%"></div>
+                    </div>
+                    <div class="meter-labels">
+                        <span>0°C</span>
+                        <span>50°C</span>
+                    </div>
+                </div>
+            </div>
+            <div class="sensor-card">
+                <div class="sensor-title">Humidity</div>
+                <div class="sensor-value">
+                    <span id="humidityValue">--</span>
+                    <span class="sensor-unit">%</span>
+                </div>
+                <div class="meter-container">
+                    <div class="meter-bar">
+                        <div class="meter-fill" id="humidityMeter" style="width: 0%"></div>
+                    </div>
+                    <div class="meter-labels">
+                        <span>0%</span>
+                        <span>100%</span>
+                    </div>
+                </div>
+            </div>
+            <div class="sensor-card">
+                <div class="sensor-title">Pressure</div>
+                <div class="sensor-value">
+                    <span id="pressureValue">--</span>
+                    <span class="sensor-unit">hPa</span>
+                </div>
+                <div class="meter-container">
+                    <div class="meter-bar">
+                        <div class="meter-fill" id="pressureMeter" style="width: 0%"></div>
+                    </div>
+                    <div class="meter-labels">
+                        <span>900</span>
+                        <span>1100</span>
+                    </div>
+                </div>
+            </div>
+            <div class="sensor-card">
+                <div class="sensor-title">Light</div>
+                <div class="sensor-value">
+                    <span id="lightValue">--</span>
+                    <span class="sensor-unit">lux</span>
+                </div>
+                <div class="meter-container">
+                    <div class="meter-bar">
+                        <div class="meter-fill" id="lightMeter" style="width: 0%"></div>
+                    </div>
+                    <div class="meter-labels">
+                        <span>0</span>
+                        <span>1000</span>
+                    </div>
+                </div>
+            </div>
+            <div class="sensor-card">
+                <div class="sensor-title">Oxidising</div>
+                <div class="sensor-value">
+                    <span id="oxidisingValue">--</span>
+                    <span class="sensor-unit">kΩ</span>
+                </div>
+                <div class="meter-container">
+                    <div class="meter-bar">
+                        <div class="meter-fill" id="oxidisingMeter" style="width: 0%"></div>
+                    </div>
+                    <div class="meter-labels">
+                        <span>0</span>
+                        <span>100</span>
+                    </div>
+                </div>
+            </div>
+            <div class="sensor-card">
+                <div class="sensor-title">Reducing</div>
+                <div class="sensor-value">
+                    <span id="reducingValue">--</span>
+                    <span class="sensor-unit">kΩ</span>
+                </div>
+                <div class="meter-container">
+                    <div class="meter-bar">
+                        <div class="meter-fill" id="reducingMeter" style="width: 0%"></div>
+                    </div>
+                    <div class="meter-labels">
+                        <span>0</span>
+                        <span>500</span>
+                    </div>
+                </div>
+            </div>
+            <div class="sensor-card">
+                <div class="sensor-title">NH3</div>
+                <div class="sensor-value">
+                    <span id="nh3Value">--</span>
+                    <span class="sensor-unit">kΩ</span>
+                </div>
+                <div class="meter-container">
+                    <div class="meter-bar">
+                        <div class="meter-fill" id="nh3Meter" style="width: 0%"></div>
+                    </div>
+                    <div class="meter-labels">
+                        <span>0</span>
+                        <span>500</span>
+                    </div>
+                </div>
+            </div>
+            <div class="sensor-card">
+                <div class="sensor-title">PM1.0</div>
+                <div class="sensor-value">
+                    <span id="pm1Value">--</span>
+                    <span class="sensor-unit">µg/m³</span>
+                </div>
+                <div class="meter-container">
+                    <div class="meter-bar">
+                        <div class="meter-fill" id="pm1Meter" style="width: 0%"></div>
+                    </div>
+                    <div class="meter-labels">
+                        <span>0</span>
+                        <span>100</span>
+                    </div>
+                </div>
+            </div>
+            <div class="sensor-card">
+                <div class="sensor-title">PM2.5</div>
+                <div class="sensor-value">
+                    <span id="pm25Value">--</span>
+                    <span class="sensor-unit">µg/m³</span>
+                </div>
+                <div class="meter-container">
+                    <div class="meter-bar">
+                        <div class="meter-fill" id="pm25Meter" style="width: 0%"></div>
+                    </div>
+                    <div class="meter-labels">
+                        <span>0</span>
+                        <span>100</span>
+                    </div>
+                </div>
+            </div>
+            <div class="sensor-card">
+                <div class="sensor-title">PM10</div>
+                <div class="sensor-value">
+                    <span id="pm10Value">--</span>
+                    <span class="sensor-unit">µg/m³</span>
+                </div>
+                <div class="meter-container">
+                    <div class="meter-bar">
+                        <div class="meter-fill" id="pm10Meter" style="width: 0%"></div>
+                    </div>
+                    <div class="meter-labels">
+                        <span>0</span>
+                        <span>100</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div style="text-align: center; color: var(--text-white); margin: 30px 0; font-size: 0.9em; font-weight: normal;">
+            <span style="opacity: 0.9;">Last reading: </span>
+            <span id="dataReceivedTime">--</span>
+        </div>
+
+        <div class="historical-section">
+            <div class="section-title">
+                <span>Historical Data</span>
+                <div class="time-selector">
+                    <button class="time-btn" onclick="loadHistoricalData(1, this)">1h</button>
+                    <button class="time-btn" onclick="loadHistoricalData(6, this)">6h</button>
+                    <button class="time-btn active" onclick="loadHistoricalData(24, this)">24h</button>
+                    <button class="time-btn" onclick="loadHistoricalData(48, this)">48h</button>
+                    <button class="time-btn" onclick="loadHistoricalData(168, this)">7d</button>
+                </div>
+            </div>
+            <div class="chart-container">
+                <canvas id="historicalChart"></canvas>
+            </div>
+            <div class="expand-button" id="expandButton" onclick="toggleAdditionalCharts()">
+                <div class="expand-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z"/>
+                    </svg>
+                </div>
+            </div>
+            <div class="additional-charts" id="additionalCharts">
+                <div class="additional-chart-container">
+                    <div class="chart-title">Temperature</div>
+                    <canvas id="tempChart"></canvas>
+                </div>
+                <div class="additional-chart-container">
+                    <div class="chart-title">Humidity</div>
+                    <canvas id="humidityChart"></canvas>
+                </div>
+                <div class="additional-chart-container">
+                    <div class="chart-title">Pressure</div>
+                    <canvas id="pressureChart"></canvas>
+                </div>
+                <div class="additional-chart-container">
+                    <div class="chart-title">Light</div>
+                    <canvas id="lightChart"></canvas>
+                </div>
+                <div class="additional-chart-container">
+                    <div class="chart-title">Oxidising</div>
+                    <canvas id="oxidisingChart"></canvas>
+                </div>
+                <div class="additional-chart-container">
+                    <div class="chart-title">Reducing</div>
+                    <canvas id="reducingChart"></canvas>
+                </div>
+                <div class="additional-chart-container">
+                    <div class="chart-title">NH3</div>
+                    <canvas id="nh3Chart"></canvas>
+                </div>
+                <div class="additional-chart-container">
+                    <div class="chart-title">PM1.0</div>
+                    <canvas id="pm1Chart"></canvas>
+                </div>
+                <div class="additional-chart-container">
+                    <div class="chart-title">PM2.5</div>
+                    <canvas id="pm25Chart"></canvas>
+                </div>
+                <div class="additional-chart-container">
+                    <div class="chart-title">PM10</div>
+                    <canvas id="pm10Chart"></canvas>
+                </div>
+            </div>
+            <div class="stats-panel" id="statsPanel">
+                <div class="stat-item">
+                    <div class="stat-label">Temperature (°C)</div>
+                    <div class="stat-values">
+                        <div class="stat-box min">
+                            <div class="stat-value-label">Min</div>
+                            <div class="stat-value"><span id="statTempMin">--</span></div>
+                        </div>
+                        <div class="stat-box max">
+                            <div class="stat-value-label">Max</div>
+                            <div class="stat-value"><span id="statTempMax">--</span></div>
+                        </div>
+                        <div class="stat-box avg">
+                            <div class="stat-value-label">Avg</div>
+                            <div class="stat-value"><span id="statTempAvg">--</span></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Humidity (%)</div>
+                    <div class="stat-values">
+                        <div class="stat-box min">
+                            <div class="stat-value-label">Min</div>
+                            <div class="stat-value"><span id="statHumidityMin">--</span></div>
+                        </div>
+                        <div class="stat-box max">
+                            <div class="stat-value-label">Max</div>
+                            <div class="stat-value"><span id="statHumidityMax">--</span></div>
+                        </div>
+                        <div class="stat-box avg">
+                            <div class="stat-value-label">Avg</div>
+                            <div class="stat-value"><span id="statHumidityAvg">--</span></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Pressure (hPa)</div>
+                    <div class="stat-values">
+                        <div class="stat-box min">
+                            <div class="stat-value-label">Min</div>
+                            <div class="stat-value"><span id="statPressureMin">--</span></div>
+                        </div>
+                        <div class="stat-box max">
+                            <div class="stat-value-label">Max</div>
+                            <div class="stat-value"><span id="statPressureMax">--</span></div>
+                        </div>
+                        <div class="stat-box avg">
+                            <div class="stat-value-label">Avg</div>
+                            <div class="stat-value"><span id="statPressureAvg">--</span></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Light (lux)</div>
+                    <div class="stat-values">
+                        <div class="stat-box min">
+                            <div class="stat-value-label">Min</div>
+                            <div class="stat-value"><span id="statLightMin">--</span></div>
+                        </div>
+                        <div class="stat-box max">
+                            <div class="stat-value-label">Max</div>
+                            <div class="stat-value"><span id="statLightMax">--</span></div>
+                        </div>
+                        <div class="stat-box avg">
+                            <div class="stat-value-label">Avg</div>
+                            <div class="stat-value"><span id="statLightAvg">--</span></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Oxidising (kΩ)</div>
+                    <div class="stat-values">
+                        <div class="stat-box min">
+                            <div class="stat-value-label">Min</div>
+                            <div class="stat-value"><span id="statOxidisingMin">--</span></div>
+                        </div>
+                        <div class="stat-box max">
+                            <div class="stat-value-label">Max</div>
+                            <div class="stat-value"><span id="statOxidisingMax">--</span></div>
+                        </div>
+                        <div class="stat-box avg">
+                            <div class="stat-value-label">Avg</div>
+                            <div class="stat-value"><span id="statOxidisingAvg">--</span></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Reducing (kΩ)</div>
+                    <div class="stat-values">
+                        <div class="stat-box min">
+                            <div class="stat-value-label">Min</div>
+                            <div class="stat-value"><span id="statReducingMin">--</span></div>
+                        </div>
+                        <div class="stat-box max">
+                            <div class="stat-value-label">Max</div>
+                            <div class="stat-value"><span id="statReducingMax">--</span></div>
+                        </div>
+                        <div class="stat-box avg">
+                            <div class="stat-value-label">Avg</div>
+                            <div class="stat-value"><span id="statReducingAvg">--</span></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">NH3 (kΩ)</div>
+                    <div class="stat-values">
+                        <div class="stat-box min">
+                            <div class="stat-value-label">Min</div>
+                            <div class="stat-value"><span id="statNh3Min">--</span></div>
+                        </div>
+                        <div class="stat-box max">
+                            <div class="stat-value-label">Max</div>
+                            <div class="stat-value"><span id="statNh3Max">--</span></div>
+                        </div>
+                        <div class="stat-box avg">
+                            <div class="stat-value-label">Avg</div>
+                            <div class="stat-value"><span id="statNh3Avg">--</span></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">PM1.0 (µg/m³)</div>
+                    <div class="stat-values">
+                        <div class="stat-box min">
+                            <div class="stat-value-label">Min</div>
+                            <div class="stat-value"><span id="statPm1Min">--</span></div>
+                        </div>
+                        <div class="stat-box max">
+                            <div class="stat-value-label">Max</div>
+                            <div class="stat-value"><span id="statPm1Max">--</span></div>
+                        </div>
+                        <div class="stat-box avg">
+                            <div class="stat-value-label">Avg</div>
+                            <div class="stat-value"><span id="statPm1Avg">--</span></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">PM2.5 (µg/m³)</div>
+                    <div class="stat-values">
+                        <div class="stat-box min">
+                            <div class="stat-value-label">Min</div>
+                            <div class="stat-value"><span id="statPm25Min">--</span></div>
+                        </div>
+                        <div class="stat-box max">
+                            <div class="stat-value-label">Max</div>
+                            <div class="stat-value"><span id="statPm25Max">--</span></div>
+                        </div>
+                        <div class="stat-box avg">
+                            <div class="stat-value-label">Avg</div>
+                            <div class="stat-value"><span id="statPm25Avg">--</span></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">PM10 (µg/m³)</div>
+                    <div class="stat-values">
+                        <div class="stat-box min">
+                            <div class="stat-value-label">Min</div>
+                            <div class="stat-value"><span id="statPm10Min">--</span></div>
+                        </div>
+                        <div class="stat-box max">
+                            <div class="stat-value-label">Max</div>
+                            <div class="stat-value"><span id="statPm10Max">--</span></div>
+                        </div>
+                        <div class="stat-box avg">
+                            <div class="stat-value-label">Avg</div>
+                            <div class="stat-value"><span id="statPm10Avg">--</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const METRICS = [
+            { key: 'temperature', el: 'temp', unit: '°C', ohms: false, max: 50, min: 0, decimals: 1 },
+            { key: 'humidity', el: 'humidity', unit: '%', ohms: false, max: 100, min: 0, decimals: 1 },
+            { key: 'pressure', el: 'pressure', unit: 'hPa', ohms: false, max: 1100, min: 900, decimals: 1 },
+            { key: 'light', el: 'light', unit: 'lux', ohms: false, max: 1000, min: 0, decimals: 0 },
+            { key: 'oxidising', el: 'oxidising', unit: 'kΩ', ohms: true, max: 100000, min: 0, decimals: 1 },
+            { key: 'reducing', el: 'reducing', unit: 'kΩ', ohms: true, max: 500000, min: 0, decimals: 1 },
+            { key: 'nh3', el: 'nh3', unit: 'kΩ', ohms: true, max: 500000, min: 0, decimals: 1 },
+            { key: 'pm1', el: 'pm1', unit: 'µg/m³', ohms: false, max: 100, min: 0, decimals: 1 },
+            { key: 'pm25', el: 'pm25', unit: 'µg/m³', ohms: false, max: 100, min: 0, decimals: 1 },
+            { key: 'pm10', el: 'pm10', unit: 'µg/m³', ohms: false, max: 100, min: 0, decimals: 1 },
+        ];
+
+        const MAIN_DATASETS = [
+            { key: 'temperature', label: 'Temperature (°C)', color: 'rgb(205, 60, 101)', axis: 'y2' },
+            { key: 'humidity', label: 'Humidity (%)', color: 'rgb(62, 145, 190)', axis: 'y1' },
+            { key: 'pm25', label: 'PM2.5 (µg/m³)', color: 'rgb(153, 102, 255)', axis: 'y' },
+            { key: 'pm10', label: 'PM10 (µg/m³)', color: 'rgb(255, 159, 64)', axis: 'y' },
+        ];
+
+        const EXTRA_CHARTS = [
+            { id: 'tempChart', key: 'temperature', label: 'Temperature (°C)', color: 'rgb(205, 60, 101)' },
+            { id: 'humidityChart', key: 'humidity', label: 'Humidity (%)', color: 'rgb(62, 145, 190)', min: 0, max: 100 },
+            { id: 'pressureChart', key: 'pressure', label: 'Pressure (hPa)', color: 'rgb(255, 99, 132)' },
+            { id: 'lightChart', key: 'light', label: 'Light (lux)', color: 'rgb(75, 192, 192)' },
+            { id: 'oxidisingChart', key: 'oxidising', label: 'Oxidising (kΩ)', color: 'rgb(255, 159, 64)', ohms: true },
+            { id: 'reducingChart', key: 'reducing', label: 'Reducing (kΩ)', color: 'rgb(54, 162, 235)', ohms: true },
+            { id: 'nh3Chart', key: 'nh3', label: 'NH3 (kΩ)', color: 'rgb(255, 206, 86)', ohms: true },
+            { id: 'pm1Chart', key: 'pm1', label: 'PM1.0 (µg/m³)', color: 'rgb(201, 203, 207)' },
+            { id: 'pm25Chart', key: 'pm25', label: 'PM2.5 (µg/m³)', color: 'rgb(153, 102, 255)' },
+            { id: 'pm10Chart', key: 'pm10', label: 'PM10 (µg/m³)', color: 'rgb(255, 99, 132)' },
+        ];
+
+        let historicalChart = null;
+        const extraChartInstances = {};
+        let currentHours = 24;
+        let additionalChartsExpanded = false;
+
+        function displayValue(value, metric) {
+            if (value === null || value === undefined) return null;
+            return metric.ohms ? value / 1000 : value;
+        }
+
+        function createChartConfig(label, borderColor, yAxisTitle, yMin, yMax) {
+            return {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label,
+                        data: [],
+                        borderColor,
+                        backgroundColor: borderColor.replace('rgb', 'rgba').replace(')', ', 0.1)'),
+                        tension: 0.4,
+                        spanGaps: false,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: true, position: 'top' } },
+                    scales: {
+                        x: { display: true, title: { display: true, text: 'Time' } },
+                        y: {
+                            display: true,
+                            title: { display: true, text: yAxisTitle },
+                            ...(yMin !== undefined ? { min: yMin } : {}),
+                            ...(yMax !== undefined ? { max: yMax } : {})
+                        }
+                    }
+                }
+            };
+        }
+
+        function initChart() {
+            const ctx = document.getElementById('historicalChart').getContext('2d');
+            historicalChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: MAIN_DATASETS.map(ds => ({
+                        label: ds.label,
+                        data: [],
+                        borderColor: ds.color,
+                        backgroundColor: ds.color.replace('rgb', 'rgba').replace(')', ', 0.1)'),
+                        tension: 0.4,
+                        spanGaps: false,
+                        yAxisID: ds.axis
+                    }))
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: { display: true, position: 'top', labels: { color: '#666' } },
+                        tooltip: { enabled: true, mode: 'index', intersect: false }
+                    },
+                    scales: {
+                        x: {
+                            display: true,
+                            title: { display: true, text: 'Time', color: '#666' },
+                            ticks: { color: '#666' },
+                            grid: { color: 'rgba(0,0,0,0.1)' }
+                        },
+                        y: {
+                            type: 'linear', display: true, position: 'left',
+                            title: { display: true, text: 'PM (µg/m³)', color: '#666' },
+                            ticks: { color: '#666' },
+                            grid: { drawOnChartArea: false }
+                        },
+                        y1: {
+                            type: 'linear', display: true, position: 'left',
+                            title: { display: true, text: 'Humidity (%)', color: '#666' },
+                            ticks: { color: '#666' },
+                            grid: { drawOnChartArea: false }
+                        },
+                        y2: {
+                            type: 'linear', display: true, position: 'right',
+                            title: { display: true, text: 'Temperature (°C)', color: '#666' },
+                            ticks: { color: '#666' },
+                            grid: { color: 'rgba(0,0,0,0.1)' }
+                        }
+                    }
+                }
+            });
+
+            EXTRA_CHARTS.forEach(cfg => {
+                const el = document.getElementById(cfg.id);
+                extraChartInstances[cfg.id] = new Chart(
+                    el.getContext('2d'),
+                    createChartConfig(cfg.label, cfg.color, cfg.label, cfg.min, cfg.max)
+                );
+            });
+        }
+
+        function toggleAdditionalCharts() {
+            const additionalCharts = document.getElementById('additionalCharts');
+            const expandButton = document.getElementById('expandButton');
+            additionalChartsExpanded = !additionalChartsExpanded;
+            additionalCharts.classList.toggle('expanded', additionalChartsExpanded);
+            expandButton.classList.toggle('expanded', additionalChartsExpanded);
+            if (additionalChartsExpanded) loadAdditionalChartsData();
+        }
+
+        function updateMeters(data) {
+            if (!data) return;
+            METRICS.forEach(metric => {
+                const raw = data[metric.key];
+                if (raw === null || raw === undefined) return;
+                const shown = displayValue(raw, metric);
+                const percent = Math.min(100, Math.max(0, ((raw - metric.min) / (metric.max - metric.min)) * 100));
+                document.getElementById(metric.el + 'Meter').style.width = percent + '%';
+                document.getElementById(metric.el + 'Value').textContent = Number(shown).toFixed(metric.decimals);
+            });
+        }
+
+        async function loadCurrentData() {
+            try {
+                const response = await fetch('/api/current');
+                const result = await response.json();
+                if (result.success && result.data) {
+                    updateMeters(result.data);
+                    document.getElementById('dataReceivedTime').textContent =
+                        new Date(result.data.timestamp * 1000).toLocaleString();
+                } else {
+                    document.getElementById('dataReceivedTime').textContent = 'No data available';
+                }
+            } catch (error) {
+                console.error('Error loading current data:', error);
+            }
+        }
+
+        async function loadStats(hours) {
+            try {
+                const response = await fetch(`/api/stats?hours=${hours}`);
+                const result = await response.json();
+                if (!(result.success && result.stats)) return;
+                const stats = result.stats;
+                const map = [
+                    ['Temp', 'temp', false, 1],
+                    ['Humidity', 'humidity', false, 1],
+                    ['Pressure', 'pressure', false, 1],
+                    ['Light', 'light', false, 0],
+                    ['Oxidising', 'oxidising', true, 1],
+                    ['Reducing', 'reducing', true, 1],
+                    ['Nh3', 'nh3', true, 1],
+                    ['Pm1', 'pm1', false, 1],
+                    ['Pm25', 'pm25', false, 1],
+                    ['Pm10', 'pm10', false, 1],
+                ];
+                map.forEach(([prefix, key, ohms, decimals]) => {
+                    ['min', 'max', 'avg'].forEach(kind => {
+                        let val = stats[`${kind}_${key}`];
+                        if (val === null || val === undefined) {
+                            document.getElementById(`stat${prefix}${kind[0].toUpperCase() + kind.slice(1)}`).textContent = '--';
+                            return;
+                        }
+                        if (ohms) val = val / 1000;
+                        document.getElementById(`stat${prefix}${kind[0].toUpperCase() + kind.slice(1)}`).textContent =
+                            Number(val).toFixed(decimals);
+                    });
+                });
+            } catch (error) {
+                console.error('Error loading stats:', error);
+            }
+        }
+
+        function buildSeries(data, getValue) {
+            const gapThreshold = 3 * 60 * 1000; // 3 minutes for 60s sampling
+            const labels = [];
+            const values = [];
+            for (let i = 0; i < data.length; i++) {
+                labels.push(new Date(data[i].timestamp * 1000).toLocaleTimeString());
+                values.push(getValue(data[i]));
+                if (i < data.length - 1) {
+                    const diff = (data[i + 1].timestamp - data[i].timestamp) * 1000;
+                    if (diff > gapThreshold) {
+                        labels.push(null);
+                        values.push(null);
+                    }
+                }
+            }
+            return { labels, values };
+        }
+
+        async function loadHistoricalData(hours, buttonElement) {
+            currentHours = hours;
+            document.querySelectorAll('.time-btn').forEach(btn => btn.classList.remove('active'));
+            if (buttonElement) buttonElement.classList.add('active');
+            loadStats(hours);
+
+            try {
+                const response = await fetch(`/api/historical?hours=${hours}`);
+                const result = await response.json();
+                if (!(result.success && result.data && result.data.length)) return;
+
+                const base = buildSeries(result.data, d => d.temperature);
+                historicalChart.data.labels = base.labels;
+                MAIN_DATASETS.forEach((ds, idx) => {
+                    historicalChart.data.datasets[idx].data = buildSeries(result.data, d => d[ds.key]).values;
+                });
+                historicalChart.update();
+
+                if (additionalChartsExpanded) updateAdditionalCharts(result.data);
+            } catch (error) {
+                console.error('Error loading historical data:', error);
+            }
+        }
+
+        function loadAdditionalChartsData(data) {
+            if (!data) {
+                fetch(`/api/historical?hours=${currentHours}`)
+                    .then(r => r.json())
+                    .then(result => {
+                        if (result.success && result.data) updateAdditionalCharts(result.data);
+                    })
+                    .catch(err => console.error(err));
+            } else {
+                updateAdditionalCharts(data);
+            }
+        }
+
+        function updateAdditionalCharts(data) {
+            EXTRA_CHARTS.forEach(cfg => {
+                const chart = extraChartInstances[cfg.id];
+                if (!chart) return;
+                const series = buildSeries(data, d => {
+                    const raw = d[cfg.key];
+                    if (raw === null || raw === undefined) return null;
+                    return cfg.ohms ? raw / 1000 : raw;
+                });
+                chart.data.labels = series.labels;
+                chart.data.datasets[0].data = series.values;
+                chart.update();
+            });
+        }
+
+        function toggleTheme() {
+            const html = document.documentElement;
+            const currentTheme = html.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            html.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            updateThemeIcon(newTheme);
+            updateChartColors(newTheme);
+        }
+
+        function updateThemeIcon(theme) {
+            const svg = document.getElementById('themeIcon');
+            if (!svg) return;
+            if (theme === 'dark') {
+                svg.innerHTML = '<path d="M8 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8M8 0a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 0m0 13a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 13m8-5a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2a.5.5 0 0 1 .5.5M3 8a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2A.5.5 0 0 1 3 8m10.657-5.657a.5.5 0 0 1 0 .707l-1.414 1.415a.5.5 0 1 1-.707-.708l1.414-1.414a.5.5 0 0 1 .707 0m-9.193 9.193a.5.5 0 0 1 0 .707L3.05 13.657a.5.5 0 0 1-.707-.707l1.414-1.414a.5.5 0 0 1 .707 0m9.193 2.121a.5.5 0 0 1-.707 0l-1.414-1.414a.5.5 0 0 1 .707-.707l1.414 1.414a.5.5 0 0 1 0 .707M4.464 4.465a.5.5 0 0 1-.707 0L2.343 3.05a.5.5 0 1 1 .707-.707l1.414 1.414a.5.5 0 0 1 0 .708"/>';
+            } else {
+                svg.innerHTML = '<path d="M6 .278a.77.77 0 0 1 .08.858 7.2 7.2 0 0 0-.878 3.46c0 4.021 3.278 7.277 7.318 7.277q.792-.001 1.533-.16a.79.79 0 0 1 .81.316.73.73 0 0 1-.031.893A8.35 8.35 0 0 1 8.344 16C3.734 16 0 12.286 0 7.71 0 4.266 2.114 1.312 5.124.06A.75.75 0 0 1 6 .278"/>';
+            }
+        }
+
+        function updateChartColors(theme) {
+            const isDark = theme === 'dark';
+            const gridColor = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)';
+            const textColor = isDark ? '#b0b0b0' : '#666';
+            if (historicalChart) {
+                ['x', 'y', 'y1', 'y2'].forEach(axis => {
+                    if (!historicalChart.options.scales[axis]) return;
+                    if (historicalChart.options.scales[axis].grid) {
+                        historicalChart.options.scales[axis].grid.color = axis === 'y2' ? gridColor : historicalChart.options.scales[axis].grid.color;
+                    }
+                    if (historicalChart.options.scales[axis].ticks) historicalChart.options.scales[axis].ticks.color = textColor;
+                    if (historicalChart.options.scales[axis].title) historicalChart.options.scales[axis].title.color = textColor;
+                });
+                historicalChart.options.scales.x.grid.color = gridColor;
+                historicalChart.options.plugins.legend.labels.color = textColor;
+                historicalChart.update('none');
+            }
+            Object.values(extraChartInstances).forEach(chart => {
+                chart.options.scales.x.ticks.color = textColor;
+                chart.options.scales.x.title.color = textColor;
+                chart.options.scales.y.ticks.color = textColor;
+                chart.options.scales.y.title.color = textColor;
+                chart.options.plugins.legend.labels.color = textColor;
+                chart.update('none');
+            });
+        }
+
+        function initTheme() {
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            updateThemeIcon(savedTheme);
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            initTheme();
+            initChart();
+            setTimeout(() => updateChartColors(document.documentElement.getAttribute('data-theme') || 'light'), 100);
+            loadCurrentData();
+            loadHistoricalData(24);
+            setInterval(loadCurrentData, 5000);
+            setInterval(() => {
+                loadHistoricalData(currentHours);
+            }, 30000);
+        });
+    </script>
+</body>
+</html>

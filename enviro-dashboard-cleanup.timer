@@ -1,0 +1,12 @@
+[Unit]
+Description=Run Enviro Dashboard Database Cleanup Daily
+Requires=enviro-dashboard-cleanup.service
+
+[Timer]
+# Run daily at 2:00 AM
+OnCalendar=*-*-* 02:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+
