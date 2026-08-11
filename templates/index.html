@@ -7,7 +7,7 @@
     <link rel="icon" href="{{ url_for('static', filename='favicon.webp') }}" type="image/webp">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
         :root {
@@ -21,13 +21,14 @@
             --poor: #e23d3d;
             --glass: rgba(255, 255, 255, 0.14);
             --line: rgba(255, 255, 255, 0.28);
+            --font: "Manrope", "Segoe UI", sans-serif;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
 
         html, body {
             min-height: 100%;
-            font-family: "Outfit", sans-serif;
+            font-family: var(--font);
             color: var(--ink);
             background: #0b1520;
         }
@@ -67,11 +68,11 @@
         }
 
         .brand {
-            font-family: "Syne", sans-serif;
+            font-family: var(--font);
             font-weight: 800;
-            font-size: clamp(2.8rem, 10vw, 6rem);
-            letter-spacing: -0.04em;
-            line-height: 0.92;
+            font-size: clamp(2.6rem, 9vw, 5.25rem);
+            letter-spacing: -0.02em;
+            line-height: 1;
             margin-bottom: 0.35rem;
             text-shadow: 0 10px 40px rgba(0, 0, 0, 0.35);
         }
@@ -118,10 +119,10 @@
         }
 
         .aq-label {
-            font-family: "Syne", sans-serif;
-            font-size: clamp(1.6rem, 5vw, 2.4rem);
+            font-family: var(--font);
+            font-size: clamp(1.45rem, 4.5vw, 2.1rem);
             font-weight: 800;
-            letter-spacing: 0.08em;
+            letter-spacing: 0.04em;
             text-transform: uppercase;
         }
 
@@ -134,11 +135,12 @@
         }
 
         .pm-value {
-            font-family: "Syne", sans-serif;
-            font-size: clamp(3.5rem, 14vw, 7rem);
+            font-family: var(--font);
+            font-size: clamp(3.2rem, 12vw, 6.25rem);
             font-weight: 800;
-            letter-spacing: -0.05em;
-            line-height: 0.9;
+            letter-spacing: -0.02em;
+            line-height: 0.95;
+            font-variant-numeric: tabular-nums;
         }
 
         .pm-unit {
@@ -240,8 +242,9 @@
         }
 
         .section h2 {
-            font-family: "Syne", sans-serif;
-            font-size: clamp(1.6rem, 4vw, 2.2rem);
+            font-family: var(--font);
+            font-size: clamp(1.5rem, 3.5vw, 2rem);
+            font-weight: 800;
             margin-bottom: 0.35rem;
         }
 
@@ -281,11 +284,12 @@
         }
 
         .trophy .value {
-            font-family: "Syne", sans-serif;
-            font-size: 2rem;
+            font-family: var(--font);
+            font-size: 1.85rem;
             font-weight: 800;
-            letter-spacing: -0.03em;
-            line-height: 1;
+            letter-spacing: -0.01em;
+            line-height: 1.1;
+            font-variant-numeric: tabular-nums;
         }
 
         .trophy .unit {
@@ -308,8 +312,8 @@
 
         details.lab > summary {
             cursor: pointer;
-            font-family: "Syne", sans-serif;
-            font-size: 1.3rem;
+            font-family: var(--font);
+            font-size: 1.25rem;
             font-weight: 700;
             list-style: none;
         }
@@ -340,9 +344,10 @@
         }
 
         .sensor-value {
-            font-family: "Syne", sans-serif;
-            font-size: 1.55rem;
+            font-family: var(--font);
+            font-size: 1.45rem;
             font-weight: 800;
+            font-variant-numeric: tabular-nums;
         }
 
         .sensor-unit {
@@ -381,8 +386,9 @@
             align-items: center;
             justify-content: space-between;
             margin-bottom: 1rem;
-            font-family: "Syne", sans-serif;
-            font-size: 1.15rem;
+            font-family: var(--font);
+            font-size: 1.1rem;
+            font-weight: 700;
         }
 
         .time-selector { display: flex; flex-wrap: wrap; gap: 0.4rem; }
