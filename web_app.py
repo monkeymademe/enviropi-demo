@@ -1,16 +1,21 @@
 """
 Flask web application for displaying Enviro+ sensor data.
-Provides API endpoints and serves the web UI.
+Maker Faire mode: air-quality light, today's trophies, day replay, live proximity.
 """
 
-from flask import Flask, render_template, jsonify, request
-import sqlite3
-from datetime import datetime
-from pathlib import Path
+from __future__ import annotations
+
+import json
 import logging
+import sqlite3
+from datetime import datetime, time as dt_time
+from pathlib import Path
+
+from flask import Flask, jsonify, render_template, request
 
 app = Flask(__name__)
 DB_PATH = "sensor_data.db"
+LIVE_STATE_PATH = Path("live_state.json")
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -40,16 +45,18 @@ SENSOR_COLUMNS = (
     "pm10",
 )
 
+# PM2.5 bands (µg/m³) — walk-up friendly, roughly EPA-inspired
+AQ_GOOD_MAX = 12.0
+AQ_OK_MAX = 35.0
+
 
 def get_db_connection():
-    """Get database connection."""
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
 
 
 def get_latest_reading():
-    """Get the most recent sensor reading."""
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute(
@@ -65,7 +72,6 @@ def get_latest_reading():
 
 
 def get_historical_data(hours=24):
-    """Get historical sensor data for the specified number of hours."""
     conn = get_db_connection()
     cursor = conn.cursor()
     cutoff_time = datetime.now().timestamp() - (hours * 3600)
@@ -83,6 +89,30 @@ def get_historical_data(hours=24):
     return [dict(row) for row in rows]
 
 
+def today_start_timestamp() -> float:
+    now = datetime.now()
+    start = datetime.combine(now.date(), dt_time.min)
+    return start.timestamp()
+
+
+def get_today_data():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    start = today_start_timestamp()
+    cursor.execute(
+        f"""
+        SELECT timestamp, {", ".join(SENSOR_COLUMNS)}
+        FROM sensor_readings
+        WHERE timestamp >= ?
+        ORDER BY timestamp ASC
+        """,
+        (start,),
+    )
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
+
+
 def _ensure_column(cursor, column_name, column_type="REAL"):
     try:
         cursor.execute(f"ALTER TABLE sensor_readings ADD COLUMN {column_name} {column_type}")
@@ -91,10 +121,8 @@ def _ensure_column(cursor, column_name, column_type="REAL"):
 
 
 def init_database():
-    """Initialize the SQLite database with sensor data table."""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
-
     cursor.execute(
         """
         CREATE TABLE IF NOT EXISTS sensor_readings (
@@ -114,28 +142,22 @@ def init_database():
         )
         """
     )
-
     for column in SENSOR_COLUMNS:
         _ensure_column(cursor, column)
-
-    # Legacy columns from the Enviro Indoor version (kept if already present)
     for legacy in ("gas", "aqi", "color_temperature"):
         _ensure_column(cursor, legacy)
-
     cursor.execute(
         """
         CREATE INDEX IF NOT EXISTS idx_timestamp
         ON sensor_readings(timestamp)
         """
     )
-
     conn.commit()
     conn.close()
     logger.info("Database initialized successfully")
 
 
 def store_sensor_data(data):
-    """Store sensor data in the database."""
     try:
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
@@ -161,7 +183,6 @@ def store_sensor_data(data):
         )
         conn.commit()
         conn.close()
-        logger.debug("Stored sensor data: %s", data)
         return True
     except Exception as exc:  # noqa: BLE001
         logger.error("Error storing sensor data: %s", exc)
@@ -169,12 +190,40 @@ def store_sensor_data(data):
 
 
 def is_system_sleeping():
-    """Treat missing recent samples as inactive (collector down)."""
     latest = get_latest_reading()
     if not latest:
         return True
-    time_diff = datetime.now().timestamp() - latest["timestamp"]
-    return time_diff > 300  # 5 minutes
+    return (datetime.now().timestamp() - latest["timestamp"]) > 300
+
+
+def air_quality_from_pm25(pm25):
+    if pm25 is None:
+        return {
+            "level": "unknown",
+            "label": "Waiting",
+            "color": "#6b6a6a",
+            "message": "Warming up the particle sensor…",
+        }
+    if pm25 <= AQ_GOOD_MAX:
+        return {
+            "level": "good",
+            "label": "Good",
+            "color": "#2ecc71",
+            "message": "Air looks clean — breathe easy!",
+        }
+    if pm25 <= AQ_OK_MAX:
+        return {
+            "level": "ok",
+            "label": "OK",
+            "color": "#f1c40f",
+            "message": "A bit dusty — still fine for the booth.",
+        }
+    return {
+        "level": "poor",
+        "label": "Poor",
+        "color": "#e74c3c",
+        "message": "Particles are high — wave a fan or step back!",
+    }
 
 
 def _reading_payload(reading):
@@ -193,10 +242,23 @@ def _reading_payload(reading):
     }
 
 
-def _normalize_incoming_reading(reading):
-    """Map common aliases into the Enviro+ schema."""
-    reading = dict(reading)
+def read_live_state():
+    if not LIVE_STATE_PATH.exists():
+        return {}
+    try:
+        return json.loads(LIVE_STATE_PATH.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
 
+
+def write_live_state(state: dict) -> None:
+    payload = dict(state)
+    payload["updated_at"] = datetime.now().timestamp()
+    LIVE_STATE_PATH.write_text(json.dumps(payload), encoding="utf-8")
+
+
+def _normalize_incoming_reading(reading):
+    reading = dict(reading)
     if "timestamp" not in reading:
         reading["timestamp"] = datetime.now().timestamp()
     elif isinstance(reading["timestamp"], str):
@@ -221,15 +283,132 @@ def _normalize_incoming_reading(reading):
     }
 
 
+def _fmt_time(ts):
+    if ts is None:
+        return None
+    return datetime.fromtimestamp(ts).strftime("%H:%M")
+
+
+def build_today_trophies(rows):
+    if not rows:
+        return {
+            "trophies": [],
+            "stories": ["No readings yet today — leave the Pi running and come back soon!"],
+            "counts": {"readings": 0},
+        }
+
+    def best(key, reverse=False):
+        valid = [r for r in rows if r.get(key) is not None]
+        if not valid:
+            return None
+        return sorted(valid, key=lambda r: r[key], reverse=reverse)[0]
+
+    hottest = best("temperature", reverse=True)
+    coolest = best("temperature", reverse=False)
+    peak_pm = best("pm25", reverse=True)
+    cleanest = best("pm25", reverse=False)
+    brightest = best("light", reverse=True)
+    darkest = best("light", reverse=False)
+
+    trophies = []
+    if peak_pm:
+        trophies.append(
+            {
+                "id": "peak_pm",
+                "title": "Dustiest moment",
+                "value": f"{peak_pm['pm25']:.1f}",
+                "unit": "µg/m³ PM2.5",
+                "when": _fmt_time(peak_pm["timestamp"]),
+                "emoji_label": "Peak particles",
+            }
+        )
+    if cleanest:
+        trophies.append(
+            {
+                "id": "cleanest",
+                "title": "Cleanest air",
+                "value": f"{cleanest['pm25']:.1f}",
+                "unit": "µg/m³ PM2.5",
+                "when": _fmt_time(cleanest["timestamp"]),
+                "emoji_label": "Freshest",
+            }
+        )
+    if hottest:
+        trophies.append(
+            {
+                "id": "hottest",
+                "title": "Hottest",
+                "value": f"{hottest['temperature']:.1f}",
+                "unit": "°C",
+                "when": _fmt_time(hottest["timestamp"]),
+                "emoji_label": "Warmest",
+            }
+        )
+    if coolest:
+        trophies.append(
+            {
+                "id": "coolest",
+                "title": "Coolest",
+                "value": f"{coolest['temperature']:.1f}",
+                "unit": "°C",
+                "when": _fmt_time(coolest["timestamp"]),
+                "emoji_label": "Chillest",
+            }
+        )
+    if brightest:
+        trophies.append(
+            {
+                "id": "brightest",
+                "title": "Brightest",
+                "value": f"{brightest['light']:.0f}",
+                "unit": "lux",
+                "when": _fmt_time(brightest["timestamp"]),
+                "emoji_label": "Most light",
+            }
+        )
+    if darkest:
+        trophies.append(
+            {
+                "id": "darkest",
+                "title": "Darkest",
+                "value": f"{darkest['light']:.0f}",
+                "unit": "lux",
+                "when": _fmt_time(darkest["timestamp"]),
+                "emoji_label": "Dimmest",
+            }
+        )
+
+    stories = []
+    if peak_pm and cleanest and peak_pm["pm25"] != cleanest["pm25"]:
+        stories.append(
+            f"Particles peaked at {_fmt_time(peak_pm['timestamp'])} "
+            f"({peak_pm['pm25']:.1f} µg/m³) and were cleanest at "
+            f"{_fmt_time(cleanest['timestamp'])}."
+        )
+    if hottest:
+        stories.append(
+            f"Warmest reading today: {hottest['temperature']:.1f}°C at {_fmt_time(hottest['timestamp'])}."
+        )
+    if len(rows) >= 2:
+        span_h = (rows[-1]["timestamp"] - rows[0]["timestamp"]) / 3600
+        stories.append(f"Tracking {len(rows)} samples across {span_h:.1f} hours of Maker Faire air.")
+    if not stories:
+        stories.append("Collecting today's story… hang out by the booth!")
+
+    return {
+        "trophies": trophies,
+        "stories": stories,
+        "counts": {"readings": len(rows)},
+    }
+
+
 @app.route("/")
 def index():
-    """Serve the main web interface."""
     return render_template("index.html")
 
 
 @app.route("/api/data", methods=["POST"])
 def api_receive_data():
-    """Optional ingest endpoint (collector writes DB directly; useful for tests)."""
     try:
         data = request.get_json()
         if not data:
@@ -261,25 +440,89 @@ def api_receive_data():
 
 @app.route("/api/current")
 def api_current():
-    """API endpoint for current sensor readings."""
     reading = get_latest_reading()
+    live = read_live_state()
     is_sleeping = is_system_sleeping()
 
     if reading:
+        payload = _reading_payload(reading)
+        aq = air_quality_from_pm25(payload.get("pm25"))
         return jsonify(
             {
                 "success": True,
-                "data": _reading_payload(reading),
+                "data": payload,
+                "air_quality": aq,
+                "proximity": live.get("proximity"),
+                "waving": bool(live.get("waving")),
+                "wave_count": live.get("wave_count", 0),
                 "sleeping": is_sleeping,
             }
         )
 
-    return jsonify({"success": False, "data": None, "sleeping": True})
+    return jsonify(
+        {
+            "success": False,
+            "data": None,
+            "air_quality": air_quality_from_pm25(None),
+            "proximity": live.get("proximity"),
+            "waving": bool(live.get("waving")),
+            "wave_count": live.get("wave_count", 0),
+            "sleeping": True,
+        }
+    )
+
+
+@app.route("/api/live")
+def api_live():
+    """Fast booth endpoint: latest sensors + proximity hand-wave state."""
+    reading = get_latest_reading()
+    live = read_live_state()
+    data = _reading_payload(reading) if reading else None
+    # Prefer fresher values from live_state when present
+    if live:
+        if data is None:
+            data = {}
+        for key in SENSOR_COLUMNS:
+            if live.get(key) is not None:
+                data[key] = live[key]
+        if live.get("timestamp"):
+            data["timestamp"] = live["timestamp"]
+
+    pm25 = data.get("pm25") if data else None
+    return jsonify(
+        {
+            "success": data is not None,
+            "data": data,
+            "air_quality": air_quality_from_pm25(pm25),
+            "proximity": live.get("proximity", 0),
+            "waving": bool(live.get("waving")),
+            "wave_count": int(live.get("wave_count", 0)),
+            "updated_at": live.get("updated_at"),
+            "sleeping": is_system_sleeping(),
+        }
+    )
+
+
+@app.route("/api/today")
+def api_today():
+    """Today's readings + trophies + stories for Maker Faire replay."""
+    rows = get_today_data()
+    pack = build_today_trophies(rows)
+    return jsonify(
+        {
+            "success": True,
+            "date": datetime.now().strftime("%Y-%m-%d"),
+            "data": rows,
+            "trophies": pack["trophies"],
+            "stories": pack["stories"],
+            "counts": pack["counts"],
+            "replay_seconds": 10,
+        }
+    )
 
 
 @app.route("/api/historical")
 def api_historical():
-    """API endpoint for historical sensor data."""
     hours = int(request.args.get("hours", 24))
     data = get_historical_data(hours)
     return jsonify({"success": True, "data": data, "hours": hours})
@@ -287,12 +530,10 @@ def api_historical():
 
 @app.route("/api/stats")
 def api_stats():
-    """API endpoint for sensor statistics."""
     conn = get_db_connection()
     cursor = conn.cursor()
     hours = int(request.args.get("hours", 24))
     cutoff_time = datetime.now().timestamp() - (hours * 3600)
-
     cursor.execute(
         """
         SELECT
@@ -333,7 +574,6 @@ def api_stats():
     )
     row = cursor.fetchone()
     conn.close()
-
     if row:
         return jsonify({"success": True, "stats": dict(row), "hours": hours})
     return jsonify({"success": False, "stats": None, "hours": hours})
@@ -342,6 +582,6 @@ def api_stats():
 if __name__ == "__main__":
     Path("templates").mkdir(exist_ok=True)
     init_database()
-    logger.info("Starting Enviro+ web dashboard...")
+    logger.info("Starting Enviro+ Maker Faire dashboard...")
     logger.info("Dashboard: http://<pi-ip>:5000")
     app.run(host="0.0.0.0", port=5000, debug=False)

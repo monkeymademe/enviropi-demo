@@ -3,1054 +3,806 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Enviro+ Sensor Dashboard</title>
+    <title>Enviro+ · Maker Faire</title>
     <link rel="icon" href="{{ url_for('static', filename='favicon.webp') }}" type="image/webp">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&family=Syne:wght@700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
         :root {
-            --bg-gradient-start: #3e91be;
-            --bg-gradient-end: #cd3c65;
-            --bg-color: #f8f8f8;
-            --card-bg: white;
-            --text-primary: #333;
-            --text-secondary: #666;
-            --text-muted: #999;
-            --text-white: white;
-            --border-color: #f0f0f0;
-            --stats-panel-bg: #f8f8f8;
-            --stat-box-bg: #f8f8f8;
-            --sleep-overlay-bg: rgba(0, 0, 0, 0.1);
+            --ink: #102033;
+            --paper: #f4f7fb;
+            --muted: #5b6b7c;
+            --brand-a: #1f7a9c;
+            --brand-b: #c83b65;
+            --good: #1fad6b;
+            --ok: #e0a800;
+            --poor: #e23d3d;
+            --glass: rgba(255, 255, 255, 0.14);
+            --line: rgba(255, 255, 255, 0.28);
         }
 
-        [data-theme="dark"] {
-            --bg-gradient-start: #6b6a6a;
-            --bg-gradient-end: #cd3c65;
-            --bg-color: #0f1419;
-            --card-bg: #1a1f2e;
-            --text-primary: #e0e0e0;
-            --text-secondary: #b0b0b0;
-            --text-muted: #808080;
-            --text-white: #e0e0e0;
-            --border-color: #2a2f3e;
-            --stats-panel-bg: #1a1f2e;
-            --stat-box-bg: #0f1419;
-            --sleep-overlay-bg: rgba(255, 255, 255, 0.1);
-        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+        html, body {
+            min-height: 100%;
+            font-family: "Outfit", sans-serif;
+            color: var(--ink);
+            background: #0b1520;
         }
 
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 100%);
+            overflow-x: hidden;
+        }
+
+        .hero {
+            position: relative;
             min-height: 100vh;
-            padding: 20px;
-            color: var(--text-primary);
-            transition: background 0.3s ease;
+            min-height: 100dvh;
+            display: grid;
+            place-items: center;
+            padding: clamp(1.25rem, 3vw, 2.5rem);
+            color: #fff;
+            background:
+                radial-gradient(ellipse 80% 60% at 20% 20%, rgba(31, 122, 156, 0.55), transparent 55%),
+                radial-gradient(ellipse 70% 50% at 85% 75%, rgba(200, 59, 101, 0.45), transparent 50%),
+                linear-gradient(160deg, #0d1a28 0%, #152536 45%, #1a1030 100%);
         }
 
-        html[data-theme="dark"] body {
-            background: linear-gradient(135deg, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 90%, var(--bg-gradient-end) 100%);
+        #particleCanvas {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            opacity: 0.85;
         }
 
-        .container {
-            max-width: 1400px;
+        .hero-inner {
+            position: relative;
+            z-index: 2;
+            width: min(920px, 100%);
+            text-align: center;
+        }
+
+        .brand {
+            font-family: "Syne", sans-serif;
+            font-weight: 800;
+            font-size: clamp(2.8rem, 10vw, 6rem);
+            letter-spacing: -0.04em;
+            line-height: 0.92;
+            margin-bottom: 0.35rem;
+            text-shadow: 0 10px 40px rgba(0, 0, 0, 0.35);
+        }
+
+        .tagline {
+            font-size: clamp(1rem, 2.4vw, 1.25rem);
+            opacity: 0.85;
+            margin-bottom: clamp(1.5rem, 4vh, 2.5rem);
+        }
+
+        .aq-stage {
+            display: grid;
+            justify-items: center;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .traffic-light {
+            width: clamp(110px, 18vw, 150px);
+            height: clamp(110px, 18vw, 150px);
+            border-radius: 50%;
+            background: var(--muted);
+            box-shadow:
+                0 0 0 10px rgba(255, 255, 255, 0.08),
+                0 0 60px color-mix(in srgb, var(--aq, #6b6a6a) 55%, transparent);
+            transition: background 0.45s ease, box-shadow 0.45s ease, transform 0.35s ease;
+            animation: pulse-soft 2.8s ease-in-out infinite;
+        }
+
+        .traffic-light.waving {
+            transform: scale(1.08);
+            animation: wave-pop 0.45s ease;
+        }
+
+        @keyframes pulse-soft {
+            0%, 100% { filter: brightness(1); }
+            50% { filter: brightness(1.12); }
+        }
+
+        @keyframes wave-pop {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.14); }
+            100% { transform: scale(1.08); }
+        }
+
+        .aq-label {
+            font-family: "Syne", sans-serif;
+            font-size: clamp(1.6rem, 5vw, 2.4rem);
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .pm-block {
+            display: flex;
+            align-items: baseline;
+            justify-content: center;
+            gap: 0.45rem;
+            margin: 0.25rem 0 0.5rem;
+        }
+
+        .pm-value {
+            font-family: "Syne", sans-serif;
+            font-size: clamp(3.5rem, 14vw, 7rem);
+            font-weight: 800;
+            letter-spacing: -0.05em;
+            line-height: 0.9;
+        }
+
+        .pm-unit {
+            font-size: clamp(0.95rem, 2.5vw, 1.2rem);
+            opacity: 0.8;
+            text-align: left;
+        }
+
+        .aq-message {
+            font-size: clamp(1rem, 2.5vw, 1.2rem);
+            max-width: 34rem;
+            margin: 0 auto 1.5rem;
+            opacity: 0.92;
+            min-height: 1.5em;
+        }
+
+        .cta-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            justify-content: center;
+            margin-bottom: 1rem;
+        }
+
+        .btn {
+            appearance: none;
+            border: 1px solid var(--line);
+            background: var(--glass);
+            color: #fff;
+            font-family: inherit;
+            font-weight: 700;
+            font-size: 0.95rem;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            padding: 0.9rem 1.35rem;
+            border-radius: 999px;
+            cursor: pointer;
+            backdrop-filter: blur(8px);
+            transition: transform 0.2s ease, background 0.2s ease;
+        }
+
+        .btn:hover { transform: translateY(-2px); background: rgba(255,255,255,0.22); }
+        .btn.primary {
+            background: #fff;
+            color: var(--ink);
+            border-color: #fff;
+        }
+
+        .replay-bar {
+            width: min(420px, 90%);
+            height: 6px;
+            margin: 0.75rem auto 0;
+            border-radius: 999px;
+            background: rgba(255,255,255,0.15);
+            overflow: hidden;
+            opacity: 0;
+            transition: opacity 0.25s ease;
+        }
+
+        .replay-bar.active { opacity: 1; }
+        .replay-bar > span {
+            display: block;
+            height: 100%;
+            width: 0%;
+            background: #fff;
+        }
+
+        .wave-banner {
+            margin-top: 1.25rem;
+            min-height: 1.4em;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            opacity: 0.55;
+            transition: opacity 0.25s ease, color 0.25s ease, transform 0.25s ease;
+        }
+
+        .wave-banner.hot {
+            opacity: 1;
+            color: #ffe08a;
+            transform: scale(1.05);
+        }
+
+        .meta-line {
+            margin-top: 1.5rem;
+            font-size: 0.9rem;
+            opacity: 0.7;
+        }
+
+        .below {
+            background: var(--paper);
+            color: var(--ink);
+            padding: clamp(2rem, 5vw, 3.5rem) clamp(1.25rem, 4vw, 2.5rem) 4rem;
+        }
+
+        .section {
+            width: min(1100px, 100%);
+            margin: 0 auto 2.75rem;
+        }
+
+        .section h2 {
+            font-family: "Syne", sans-serif;
+            font-size: clamp(1.6rem, 4vw, 2.2rem);
+            margin-bottom: 0.35rem;
+        }
+
+        .section p.lead {
+            color: var(--muted);
+            margin-bottom: 1.25rem;
+            max-width: 40rem;
+        }
+
+        .story-rail {
+            font-size: 1.15rem;
+            font-weight: 600;
+            line-height: 1.45;
+            min-height: 2.8em;
+            padding: 1rem 0;
+            border-top: 1px solid rgba(16, 32, 51, 0.12);
+            border-bottom: 1px solid rgba(16, 32, 51, 0.12);
+        }
+
+        .trophy-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 1.25rem 1.5rem;
+        }
+
+        .trophy {
+            padding-top: 0.85rem;
+            border-top: 3px solid var(--brand-b);
+        }
+
+        .trophy .title {
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--muted);
+            margin-bottom: 0.35rem;
+        }
+
+        .trophy .value {
+            font-family: "Syne", sans-serif;
+            font-size: 2rem;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            line-height: 1;
+        }
+
+        .trophy .unit {
+            font-size: 0.85rem;
+            color: var(--muted);
+        }
+
+        .trophy .when {
+            margin-top: 0.35rem;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
+        details.lab {
+            width: min(1100px, 100%);
             margin: 0 auto;
+            border-top: 1px solid rgba(16, 32, 51, 0.12);
+            padding-top: 1.5rem;
         }
 
+        details.lab > summary {
+            cursor: pointer;
+            font-family: "Syne", sans-serif;
+            font-size: 1.3rem;
+            font-weight: 700;
+            list-style: none;
+        }
+
+        details.lab > summary::-webkit-details-marker { display: none; }
 
         .current-readings {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-            gap: 15px;
-            margin-bottom: 40px;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 0.85rem;
+            margin: 1.25rem 0 1.5rem;
         }
 
         .sensor-card {
-            background: var(--card-bg);
-            border-radius: 20px;
-            padding: 18px;
-            min-width: 0; /* Allows flex shrinking */
-            transition: background 0.3s ease;
+            background: #fff;
+            border-radius: 16px;
+            padding: 1rem;
+            box-shadow: 0 8px 24px rgba(16, 32, 51, 0.06);
         }
 
         .sensor-title {
-            font-size: 0.9em;
-            color: var(--text-secondary);
-            margin-bottom: 10px;
-            font-weight: 600;
+            font-size: 0.75rem;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            letter-spacing: 0.06em;
+            color: var(--muted);
+            margin-bottom: 0.35rem;
+            font-weight: 700;
         }
 
         .sensor-value {
-            font-size: 1.75em;
-            font-weight: bold;
-            color: #6b6a6a;
-            margin-bottom: 10px;
+            font-family: "Syne", sans-serif;
+            font-size: 1.55rem;
+            font-weight: 800;
         }
 
         .sensor-unit {
-            font-size: 0.6em;
-            color: var(--text-muted);
-            font-weight: normal;
-        }
-
-        .meter-container {
-            position: relative;
-            height: 100px;
-            margin-top: 15px;
+            font-size: 0.75rem;
+            color: var(--muted);
+            font-weight: 600;
         }
 
         .meter-bar {
-            width: 100%;
-            height: 30px;
-            background: var(--border-color);
-            border-radius: 15px;
+            margin-top: 0.65rem;
+            height: 8px;
+            border-radius: 999px;
+            background: #e7edf3;
             overflow: hidden;
-            position: relative;
         }
 
         .meter-fill {
             height: 100%;
-            background: linear-gradient(90deg, #3e91be 0%, #cd3c65 100%);
-            border-radius: 15px;
-            transition: width 0.5s ease;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .meter-fill::after {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: linear-gradient(
-                90deg,
-                transparent 0%,
-                rgba(255,255,255,0.3) 50%,
-                transparent 100%
-            );
-            animation: shimmer 2s infinite;
-        }
-
-        @keyframes shimmer {
-            0% { transform: translateX(-100%); }
-            100% { transform: translateX(100%); }
-        }
-
-        .meter-labels {
-            display: flex;
-            justify-content: space-between;
-            margin-top: 8px;
-            font-size: 0.85em;
-            color: #666;
+            width: 0%;
+            border-radius: inherit;
+            background: linear-gradient(90deg, var(--brand-a), var(--brand-b));
+            transition: width 0.4s ease;
         }
 
         .historical-section {
-            background: var(--card-bg);
-            border-radius: 20px;
-            padding: 30px;
-            margin-bottom: 20px;
-            transition: background 0.3s ease;
+            background: #fff;
+            border-radius: 18px;
+            padding: 1.25rem;
+            box-shadow: 0 8px 24px rgba(16, 32, 51, 0.06);
         }
 
         .section-title {
-            font-size: 1.8em;
-            color: var(--text-secondary);
-            margin-bottom: 20px;
             display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
             align-items: center;
             justify-content: space-between;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin-bottom: 1rem;
+            font-family: "Syne", sans-serif;
+            font-size: 1.15rem;
         }
 
-        .time-selector {
-            display: flex;
-            gap: 10px;
-        }
+        .time-selector { display: flex; flex-wrap: wrap; gap: 0.4rem; }
 
         .time-btn {
-            padding: 8px 16px;
-            border: 2px solid #cd3c65;
-            background: var(--card-bg);
-            color: #cd3c65;
-            border-radius: 20px;
+            border: 1px solid #c83b65;
+            background: transparent;
+            color: #c83b65;
+            border-radius: 999px;
+            padding: 0.35rem 0.7rem;
+            font: inherit;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
             cursor: pointer;
-            transition: all 0.3s ease;
-            font-size: 0.3em;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
 
-        .time-btn:hover {
-            background: #cd3c65;
-            color: white;
+        .time-btn.active, .time-btn:hover {
+            background: #c83b65;
+            color: #fff;
         }
 
-        .time-btn.active {
-            background: #cd3c65;
-            color: white;
-        }
-
-        .stats-panel {
-            background: var(--stats-panel-bg);
-            border-radius: 15px;
-            padding: 20px;
-            margin-top: 20px;
-            margin-bottom: 20px;
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-            gap: 15px;
-            transition: background 0.3s ease;
-        }
-
-        .stat-item {
-            background: var(--card-bg);
-            padding: 15px;
-            border-radius: 10px;
-            transition: background 0.3s ease;
-        }
-
-        .stat-label {
-            font-size: 0.8em;
-            color: var(--text-secondary);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-bottom: 12px;
-            font-weight: 600;
-            text-align: center;
-        }
-
-        .stat-values {
-            display: flex;
-            justify-content: space-between;
-            gap: 8px;
-        }
-
-        .stat-box {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 8px;
-            border-radius: 8px;
-            background: var(--stat-box-bg);
-            transition: background 0.3s ease;
-        }
-
-        .stat-box.min {
-            background: rgba(62, 145, 190, 0.1);
-        }
-
-        .stat-box.max {
-            background: rgba(205, 60, 101, 0.1);
-        }
-
-        .stat-box.avg {
-            background: rgba(107, 106, 106, 0.1);
-        }
-
-        .stat-value-label {
-            font-size: 0.65em;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-bottom: 6px;
-            font-weight: 600;
-        }
-
-        .stat-value {
-            font-size: 0.9em;
-            color: #6b6a6a;
-            font-weight: 500;
-        }
-
-        .stat-box.min .stat-value-label {
-            color: #3e91be;
-        }
-
-        .stat-box.max .stat-value-label {
-            color: #cd3c65;
-        }
-
-        .stat-box.avg .stat-value-label {
-            color: #6b6a6a;
-        }
-
-        @media (max-width: 768px) {
-            .stats-panel {
-                grid-template-columns: 1fr;
-            }
-            
-            .stat-values {
-                gap: 6px;
-            }
-            
-            .stat-box {
-                padding: 6px;
-            }
-            
-            .stat-value {
-                font-size: 0.85em;
-            }
-        }
-
-        .chart-container {
-            position: relative;
-            height: 300px;
-            margin-top: 20px;
-        }
-
-        .expand-button {
-            text-align: center;
-            margin-top: 15px;
-            cursor: pointer;
-            user-select: none;
-            transition: transform 0.3s ease;
-        }
-
-        .expand-button:hover {
-            opacity: 0.8;
-        }
-
-        .expand-button.expanded {
-            transform: rotate(180deg);
-        }
-
-        .expand-icon {
-            width: 24px;
-            height: 24px;
-            color: #6b6a6a;
-            display: inline-block;
-            transition: transform 0.3s ease;
-        }
-        
-        .expand-icon svg {
-            width: 100%;
-            height: 100%;
-            fill: currentColor;
-        }
-
-        .additional-charts {
-            display: none;
-            margin-top: 20px;
-            padding-top: 20px;
-            border-top: 2px solid var(--border-color);
-            transition: border-color 0.3s ease;
-        }
-
-        .additional-charts.expanded {
-            display: block;
-            margin-bottom: 50px;
-        }
-
-        .additional-chart-container {
-            position: relative;
-            height: 250px;
-            margin-bottom: 30px;
-        }
-
-        .additional-chart-container:last-child {
-            margin-bottom: 0;
-        }
-
-        .chart-title {
-            font-size: 1.2em;
-            color: var(--text-primary);
-            margin-bottom: 10px;
-            font-weight: 600;
-        }
-
-
-        h1 {
-            text-align: center;
-            color: var(--text-white);
-            margin-bottom: 30px;
-            font-size: 2.5em;
-        }
+        .chart-container { height: 280px; position: relative; }
 
         .theme-toggle {
             position: fixed;
-            top: calc(20px + 1.25em);
-            right: 20px;
-            background: transparent;
-            border: none;
-            padding: 0;
-            width: auto;
-            height: auto;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            top: 1rem;
+            right: 1rem;
+            z-index: 20;
+            border: 0;
+            background: rgba(255,255,255,0.15);
+            color: #fff;
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
             cursor: pointer;
-            transition: opacity 0.3s ease;
-            z-index: 1000;
-            transform: translateY(-50%);
+            backdrop-filter: blur(8px);
         }
 
-        .theme-toggle:hover {
-            opacity: 0.7;
+        [data-theme="dark"] .below {
+            background: #0f1419;
+            color: #e8eef5;
         }
 
-        .theme-toggle svg {
-            width: 28px;
-            height: 28px;
-            fill: white;
+        [data-theme="dark"] .section p.lead,
+        [data-theme="dark"] .trophy .unit,
+        [data-theme="dark"] .trophy .title,
+        [data-theme="dark"] .sensor-unit,
+        [data-theme="dark"] .sensor-title { color: #9aabbc; }
+
+        [data-theme="dark"] .story-rail,
+        [data-theme="dark"] details.lab {
+            border-color: rgba(255,255,255,0.12);
         }
 
+        [data-theme="dark"] .sensor-card,
+        [data-theme="dark"] .historical-section {
+            background: #1a1f2e;
+            box-shadow: none;
+        }
+
+        [data-theme="dark"] .meter-bar { background: #2a3142; }
     </style>
 </head>
-
 <body>
-    <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" aria-label="Toggle dark mode">
-        <svg id="themeIcon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16">
-            <path d="M6 .278a.77.77 0 0 1 .08.858 7.2 7.2 0 0 0-.878 3.46c0 4.021 3.278 7.277 7.318 7.277q.792-.001 1.533-.16a.79.79 0 0 1 .81.316.73.73 0 0 1-.031.893A8.35 8.35 0 0 1 8.344 16C3.734 16 0 12.286 0 7.71 0 4.266 2.114 1.312 5.124.06A.75.75 0 0 1 6 .278"/>
-        </svg>
-    </button>
+    <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" aria-label="Toggle theme">◐</button>
 
-    <div class="container">
-        <h1>Enviro+ Sensor Dashboard</h1>
+    <section class="hero" id="hero">
+        <canvas id="particleCanvas"></canvas>
+        <div class="hero-inner">
+            <div class="brand">Enviro+</div>
+            <p class="tagline">Live air at Maker Faire — particles, weather, and curious hands.</p>
 
-        <div class="current-readings">
-            <div class="sensor-card">
-                <div class="sensor-title">Temperature</div>
-                <div class="sensor-value">
-                    <span id="tempValue">--</span>
-                    <span class="sensor-unit">°C</span>
-                </div>
-                <div class="meter-container">
-                    <div class="meter-bar">
-                        <div class="meter-fill" id="tempMeter" style="width: 0%"></div>
-                    </div>
-                    <div class="meter-labels">
-                        <span>0°C</span>
-                        <span>50°C</span>
-                    </div>
-                </div>
+            <div class="aq-stage">
+                <div class="traffic-light" id="trafficLight" style="--aq:#6b6a6a"></div>
+                <div class="aq-label" id="aqLabel">Waiting</div>
             </div>
-            <div class="sensor-card">
-                <div class="sensor-title">Humidity</div>
-                <div class="sensor-value">
-                    <span id="humidityValue">--</span>
-                    <span class="sensor-unit">%</span>
-                </div>
-                <div class="meter-container">
-                    <div class="meter-bar">
-                        <div class="meter-fill" id="humidityMeter" style="width: 0%"></div>
-                    </div>
-                    <div class="meter-labels">
-                        <span>0%</span>
-                        <span>100%</span>
-                    </div>
-                </div>
+
+            <div class="pm-block">
+                <div class="pm-value" id="pmValue">--</div>
+                <div class="pm-unit">µg/m³<br>PM2.5</div>
             </div>
-            <div class="sensor-card">
-                <div class="sensor-title">Pressure</div>
-                <div class="sensor-value">
-                    <span id="pressureValue">--</span>
-                    <span class="sensor-unit">hPa</span>
-                </div>
-                <div class="meter-container">
-                    <div class="meter-bar">
-                        <div class="meter-fill" id="pressureMeter" style="width: 0%"></div>
-                    </div>
-                    <div class="meter-labels">
-                        <span>900</span>
-                        <span>1100</span>
-                    </div>
-                </div>
+            <p class="aq-message" id="aqMessage">Connecting to the sensors…</p>
+
+            <div class="cta-row">
+                <button class="btn primary" id="replayBtn" onclick="replayToday()">Replay today</button>
+                <button class="btn" onclick="document.getElementById('trophies').scrollIntoView({behavior:'smooth'})">Today’s trophies</button>
             </div>
-            <div class="sensor-card">
-                <div class="sensor-title">Light</div>
-                <div class="sensor-value">
-                    <span id="lightValue">--</span>
-                    <span class="sensor-unit">lux</span>
-                </div>
-                <div class="meter-container">
-                    <div class="meter-bar">
-                        <div class="meter-fill" id="lightMeter" style="width: 0%"></div>
-                    </div>
-                    <div class="meter-labels">
-                        <span>0</span>
-                        <span>1000</span>
-                    </div>
-                </div>
-            </div>
-            <div class="sensor-card">
-                <div class="sensor-title">Oxidising</div>
-                <div class="sensor-value">
-                    <span id="oxidisingValue">--</span>
-                    <span class="sensor-unit">kΩ</span>
-                </div>
-                <div class="meter-container">
-                    <div class="meter-bar">
-                        <div class="meter-fill" id="oxidisingMeter" style="width: 0%"></div>
-                    </div>
-                    <div class="meter-labels">
-                        <span>0</span>
-                        <span>100</span>
-                    </div>
-                </div>
-            </div>
-            <div class="sensor-card">
-                <div class="sensor-title">Reducing</div>
-                <div class="sensor-value">
-                    <span id="reducingValue">--</span>
-                    <span class="sensor-unit">kΩ</span>
-                </div>
-                <div class="meter-container">
-                    <div class="meter-bar">
-                        <div class="meter-fill" id="reducingMeter" style="width: 0%"></div>
-                    </div>
-                    <div class="meter-labels">
-                        <span>0</span>
-                        <span>500</span>
-                    </div>
-                </div>
-            </div>
-            <div class="sensor-card">
-                <div class="sensor-title">NH3</div>
-                <div class="sensor-value">
-                    <span id="nh3Value">--</span>
-                    <span class="sensor-unit">kΩ</span>
-                </div>
-                <div class="meter-container">
-                    <div class="meter-bar">
-                        <div class="meter-fill" id="nh3Meter" style="width: 0%"></div>
-                    </div>
-                    <div class="meter-labels">
-                        <span>0</span>
-                        <span>500</span>
-                    </div>
-                </div>
-            </div>
-            <div class="sensor-card">
-                <div class="sensor-title">PM1.0</div>
-                <div class="sensor-value">
-                    <span id="pm1Value">--</span>
-                    <span class="sensor-unit">µg/m³</span>
-                </div>
-                <div class="meter-container">
-                    <div class="meter-bar">
-                        <div class="meter-fill" id="pm1Meter" style="width: 0%"></div>
-                    </div>
-                    <div class="meter-labels">
-                        <span>0</span>
-                        <span>100</span>
-                    </div>
-                </div>
-            </div>
-            <div class="sensor-card">
-                <div class="sensor-title">PM2.5</div>
-                <div class="sensor-value">
-                    <span id="pm25Value">--</span>
-                    <span class="sensor-unit">µg/m³</span>
-                </div>
-                <div class="meter-container">
-                    <div class="meter-bar">
-                        <div class="meter-fill" id="pm25Meter" style="width: 0%"></div>
-                    </div>
-                    <div class="meter-labels">
-                        <span>0</span>
-                        <span>100</span>
-                    </div>
-                </div>
-            </div>
-            <div class="sensor-card">
-                <div class="sensor-title">PM10</div>
-                <div class="sensor-value">
-                    <span id="pm10Value">--</span>
-                    <span class="sensor-unit">µg/m³</span>
-                </div>
-                <div class="meter-container">
-                    <div class="meter-bar">
-                        <div class="meter-fill" id="pm10Meter" style="width: 0%"></div>
-                    </div>
-                    <div class="meter-labels">
-                        <span>0</span>
-                        <span>100</span>
-                    </div>
-                </div>
+            <div class="replay-bar" id="replayBar"><span id="replayProgress"></span></div>
+
+            <div class="wave-banner" id="waveBanner">Wave your hand over the Enviro+ light sensor</div>
+            <div class="meta-line">
+                Waves today: <strong id="waveCount">0</strong>
+                · Last reading: <span id="dataReceivedTime">--</span>
             </div>
         </div>
+    </section>
 
-        <div style="text-align: center; color: var(--text-white); margin: 30px 0; font-size: 0.9em; font-weight: normal;">
-            <span style="opacity: 0.9;">Last reading: </span>
-            <span id="dataReceivedTime">--</span>
+    <section class="below">
+        <div class="section" id="trophies">
+            <h2>Today’s trophies</h2>
+            <p class="lead">A short daily dataset, turned into booth bragging rights.</p>
+            <div class="story-rail" id="storyRail">Collecting today’s story…</div>
+            <div class="trophy-grid" id="trophyGrid" style="margin-top:1.5rem"></div>
         </div>
 
-        <div class="historical-section">
-            <div class="section-title">
-                <span>Historical Data</span>
-                <div class="time-selector">
-                    <button class="time-btn" onclick="loadHistoricalData(1, this)">1h</button>
-                    <button class="time-btn" onclick="loadHistoricalData(6, this)">6h</button>
-                    <button class="time-btn active" onclick="loadHistoricalData(24, this)">24h</button>
-                    <button class="time-btn" onclick="loadHistoricalData(48, this)">48h</button>
-                    <button class="time-btn" onclick="loadHistoricalData(168, this)">7d</button>
+        <details class="lab">
+            <summary>Lab view — all sensors &amp; charts</summary>
+            <div class="current-readings" id="sensorCards"></div>
+            <div class="historical-section">
+                <div class="section-title">
+                    <span>Historical</span>
+                    <div class="time-selector">
+                        <button class="time-btn" onclick="loadHistoricalData(1, this)">1h</button>
+                        <button class="time-btn" onclick="loadHistoricalData(6, this)">6h</button>
+                        <button class="time-btn active" onclick="loadHistoricalData(24, this)">24h</button>
+                        <button class="time-btn" onclick="loadHistoricalData(48, this)">48h</button>
+                        <button class="time-btn" onclick="loadHistoricalData(168, this)">7d</button>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="historicalChart"></canvas>
                 </div>
             </div>
-            <div class="chart-container">
-                <canvas id="historicalChart"></canvas>
-            </div>
-            <div class="expand-button" id="expandButton" onclick="toggleAdditionalCharts()">
-                <div class="expand-icon">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                        <path d="M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z"/>
-                    </svg>
-                </div>
-            </div>
-            <div class="additional-charts" id="additionalCharts">
-                <div class="additional-chart-container">
-                    <div class="chart-title">Temperature</div>
-                    <canvas id="tempChart"></canvas>
-                </div>
-                <div class="additional-chart-container">
-                    <div class="chart-title">Humidity</div>
-                    <canvas id="humidityChart"></canvas>
-                </div>
-                <div class="additional-chart-container">
-                    <div class="chart-title">Pressure</div>
-                    <canvas id="pressureChart"></canvas>
-                </div>
-                <div class="additional-chart-container">
-                    <div class="chart-title">Light</div>
-                    <canvas id="lightChart"></canvas>
-                </div>
-                <div class="additional-chart-container">
-                    <div class="chart-title">Oxidising</div>
-                    <canvas id="oxidisingChart"></canvas>
-                </div>
-                <div class="additional-chart-container">
-                    <div class="chart-title">Reducing</div>
-                    <canvas id="reducingChart"></canvas>
-                </div>
-                <div class="additional-chart-container">
-                    <div class="chart-title">NH3</div>
-                    <canvas id="nh3Chart"></canvas>
-                </div>
-                <div class="additional-chart-container">
-                    <div class="chart-title">PM1.0</div>
-                    <canvas id="pm1Chart"></canvas>
-                </div>
-                <div class="additional-chart-container">
-                    <div class="chart-title">PM2.5</div>
-                    <canvas id="pm25Chart"></canvas>
-                </div>
-                <div class="additional-chart-container">
-                    <div class="chart-title">PM10</div>
-                    <canvas id="pm10Chart"></canvas>
-                </div>
-            </div>
-            <div class="stats-panel" id="statsPanel">
-                <div class="stat-item">
-                    <div class="stat-label">Temperature (°C)</div>
-                    <div class="stat-values">
-                        <div class="stat-box min">
-                            <div class="stat-value-label">Min</div>
-                            <div class="stat-value"><span id="statTempMin">--</span></div>
-                        </div>
-                        <div class="stat-box max">
-                            <div class="stat-value-label">Max</div>
-                            <div class="stat-value"><span id="statTempMax">--</span></div>
-                        </div>
-                        <div class="stat-box avg">
-                            <div class="stat-value-label">Avg</div>
-                            <div class="stat-value"><span id="statTempAvg">--</span></div>
-                        </div>
-                    </div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-label">Humidity (%)</div>
-                    <div class="stat-values">
-                        <div class="stat-box min">
-                            <div class="stat-value-label">Min</div>
-                            <div class="stat-value"><span id="statHumidityMin">--</span></div>
-                        </div>
-                        <div class="stat-box max">
-                            <div class="stat-value-label">Max</div>
-                            <div class="stat-value"><span id="statHumidityMax">--</span></div>
-                        </div>
-                        <div class="stat-box avg">
-                            <div class="stat-value-label">Avg</div>
-                            <div class="stat-value"><span id="statHumidityAvg">--</span></div>
-                        </div>
-                    </div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-label">Pressure (hPa)</div>
-                    <div class="stat-values">
-                        <div class="stat-box min">
-                            <div class="stat-value-label">Min</div>
-                            <div class="stat-value"><span id="statPressureMin">--</span></div>
-                        </div>
-                        <div class="stat-box max">
-                            <div class="stat-value-label">Max</div>
-                            <div class="stat-value"><span id="statPressureMax">--</span></div>
-                        </div>
-                        <div class="stat-box avg">
-                            <div class="stat-value-label">Avg</div>
-                            <div class="stat-value"><span id="statPressureAvg">--</span></div>
-                        </div>
-                    </div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-label">Light (lux)</div>
-                    <div class="stat-values">
-                        <div class="stat-box min">
-                            <div class="stat-value-label">Min</div>
-                            <div class="stat-value"><span id="statLightMin">--</span></div>
-                        </div>
-                        <div class="stat-box max">
-                            <div class="stat-value-label">Max</div>
-                            <div class="stat-value"><span id="statLightMax">--</span></div>
-                        </div>
-                        <div class="stat-box avg">
-                            <div class="stat-value-label">Avg</div>
-                            <div class="stat-value"><span id="statLightAvg">--</span></div>
-                        </div>
-                    </div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-label">Oxidising (kΩ)</div>
-                    <div class="stat-values">
-                        <div class="stat-box min">
-                            <div class="stat-value-label">Min</div>
-                            <div class="stat-value"><span id="statOxidisingMin">--</span></div>
-                        </div>
-                        <div class="stat-box max">
-                            <div class="stat-value-label">Max</div>
-                            <div class="stat-value"><span id="statOxidisingMax">--</span></div>
-                        </div>
-                        <div class="stat-box avg">
-                            <div class="stat-value-label">Avg</div>
-                            <div class="stat-value"><span id="statOxidisingAvg">--</span></div>
-                        </div>
-                    </div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-label">Reducing (kΩ)</div>
-                    <div class="stat-values">
-                        <div class="stat-box min">
-                            <div class="stat-value-label">Min</div>
-                            <div class="stat-value"><span id="statReducingMin">--</span></div>
-                        </div>
-                        <div class="stat-box max">
-                            <div class="stat-value-label">Max</div>
-                            <div class="stat-value"><span id="statReducingMax">--</span></div>
-                        </div>
-                        <div class="stat-box avg">
-                            <div class="stat-value-label">Avg</div>
-                            <div class="stat-value"><span id="statReducingAvg">--</span></div>
-                        </div>
-                    </div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-label">NH3 (kΩ)</div>
-                    <div class="stat-values">
-                        <div class="stat-box min">
-                            <div class="stat-value-label">Min</div>
-                            <div class="stat-value"><span id="statNh3Min">--</span></div>
-                        </div>
-                        <div class="stat-box max">
-                            <div class="stat-value-label">Max</div>
-                            <div class="stat-value"><span id="statNh3Max">--</span></div>
-                        </div>
-                        <div class="stat-box avg">
-                            <div class="stat-value-label">Avg</div>
-                            <div class="stat-value"><span id="statNh3Avg">--</span></div>
-                        </div>
-                    </div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-label">PM1.0 (µg/m³)</div>
-                    <div class="stat-values">
-                        <div class="stat-box min">
-                            <div class="stat-value-label">Min</div>
-                            <div class="stat-value"><span id="statPm1Min">--</span></div>
-                        </div>
-                        <div class="stat-box max">
-                            <div class="stat-value-label">Max</div>
-                            <div class="stat-value"><span id="statPm1Max">--</span></div>
-                        </div>
-                        <div class="stat-box avg">
-                            <div class="stat-value-label">Avg</div>
-                            <div class="stat-value"><span id="statPm1Avg">--</span></div>
-                        </div>
-                    </div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-label">PM2.5 (µg/m³)</div>
-                    <div class="stat-values">
-                        <div class="stat-box min">
-                            <div class="stat-value-label">Min</div>
-                            <div class="stat-value"><span id="statPm25Min">--</span></div>
-                        </div>
-                        <div class="stat-box max">
-                            <div class="stat-value-label">Max</div>
-                            <div class="stat-value"><span id="statPm25Max">--</span></div>
-                        </div>
-                        <div class="stat-box avg">
-                            <div class="stat-value-label">Avg</div>
-                            <div class="stat-value"><span id="statPm25Avg">--</span></div>
-                        </div>
-                    </div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-label">PM10 (µg/m³)</div>
-                    <div class="stat-values">
-                        <div class="stat-box min">
-                            <div class="stat-value-label">Min</div>
-                            <div class="stat-value"><span id="statPm10Min">--</span></div>
-                        </div>
-                        <div class="stat-box max">
-                            <div class="stat-value-label">Max</div>
-                            <div class="stat-value"><span id="statPm10Max">--</span></div>
-                        </div>
-                        <div class="stat-box avg">
-                            <div class="stat-value-label">Avg</div>
-                            <div class="stat-value"><span id="statPm10Avg">--</span></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
+        </details>
+    </section>
 
     <script>
         const METRICS = [
-            { key: 'temperature', el: 'temp', unit: '°C', ohms: false, max: 50, min: 0, decimals: 1 },
-            { key: 'humidity', el: 'humidity', unit: '%', ohms: false, max: 100, min: 0, decimals: 1 },
-            { key: 'pressure', el: 'pressure', unit: 'hPa', ohms: false, max: 1100, min: 900, decimals: 1 },
-            { key: 'light', el: 'light', unit: 'lux', ohms: false, max: 1000, min: 0, decimals: 0 },
-            { key: 'oxidising', el: 'oxidising', unit: 'kΩ', ohms: true, max: 100000, min: 0, decimals: 1 },
-            { key: 'reducing', el: 'reducing', unit: 'kΩ', ohms: true, max: 500000, min: 0, decimals: 1 },
-            { key: 'nh3', el: 'nh3', unit: 'kΩ', ohms: true, max: 500000, min: 0, decimals: 1 },
-            { key: 'pm1', el: 'pm1', unit: 'µg/m³', ohms: false, max: 100, min: 0, decimals: 1 },
-            { key: 'pm25', el: 'pm25', unit: 'µg/m³', ohms: false, max: 100, min: 0, decimals: 1 },
-            { key: 'pm10', el: 'pm10', unit: 'µg/m³', ohms: false, max: 100, min: 0, decimals: 1 },
-        ];
-
-        const MAIN_DATASETS = [
-            { key: 'temperature', label: 'Temperature (°C)', color: 'rgb(205, 60, 101)', axis: 'y2' },
-            { key: 'humidity', label: 'Humidity (%)', color: 'rgb(62, 145, 190)', axis: 'y1' },
-            { key: 'pm25', label: 'PM2.5 (µg/m³)', color: 'rgb(153, 102, 255)', axis: 'y' },
-            { key: 'pm10', label: 'PM10 (µg/m³)', color: 'rgb(255, 159, 64)', axis: 'y' },
-        ];
-
-        const EXTRA_CHARTS = [
-            { id: 'tempChart', key: 'temperature', label: 'Temperature (°C)', color: 'rgb(205, 60, 101)' },
-            { id: 'humidityChart', key: 'humidity', label: 'Humidity (%)', color: 'rgb(62, 145, 190)', min: 0, max: 100 },
-            { id: 'pressureChart', key: 'pressure', label: 'Pressure (hPa)', color: 'rgb(255, 99, 132)' },
-            { id: 'lightChart', key: 'light', label: 'Light (lux)', color: 'rgb(75, 192, 192)' },
-            { id: 'oxidisingChart', key: 'oxidising', label: 'Oxidising (kΩ)', color: 'rgb(255, 159, 64)', ohms: true },
-            { id: 'reducingChart', key: 'reducing', label: 'Reducing (kΩ)', color: 'rgb(54, 162, 235)', ohms: true },
-            { id: 'nh3Chart', key: 'nh3', label: 'NH3 (kΩ)', color: 'rgb(255, 206, 86)', ohms: true },
-            { id: 'pm1Chart', key: 'pm1', label: 'PM1.0 (µg/m³)', color: 'rgb(201, 203, 207)' },
-            { id: 'pm25Chart', key: 'pm25', label: 'PM2.5 (µg/m³)', color: 'rgb(153, 102, 255)' },
-            { id: 'pm10Chart', key: 'pm10', label: 'PM10 (µg/m³)', color: 'rgb(255, 99, 132)' },
+            { key: 'temperature', label: 'Temperature', unit: '°C', max: 50, min: 0, decimals: 1 },
+            { key: 'humidity', label: 'Humidity', unit: '%', max: 100, min: 0, decimals: 1 },
+            { key: 'pressure', label: 'Pressure', unit: 'hPa', max: 1100, min: 900, decimals: 1 },
+            { key: 'light', label: 'Light', unit: 'lux', max: 1000, min: 0, decimals: 0 },
+            { key: 'oxidising', label: 'Oxidising', unit: 'kΩ', max: 100000, min: 0, decimals: 1, ohms: true },
+            { key: 'reducing', label: 'Reducing', unit: 'kΩ', max: 500000, min: 0, decimals: 1, ohms: true },
+            { key: 'nh3', label: 'NH3', unit: 'kΩ', max: 500000, min: 0, decimals: 1, ohms: true },
+            { key: 'pm1', label: 'PM1.0', unit: 'µg/m³', max: 100, min: 0, decimals: 1 },
+            { key: 'pm25', label: 'PM2.5', unit: 'µg/m³', max: 100, min: 0, decimals: 1 },
+            { key: 'pm10', label: 'PM10', unit: 'µg/m³', max: 100, min: 0, decimals: 1 },
         ];
 
         let historicalChart = null;
-        const extraChartInstances = {};
         let currentHours = 24;
-        let additionalChartsExpanded = false;
+        let replaying = false;
+        let storyIndex = 0;
+        let stories = [];
+        let particleDensity = 12;
 
-        function displayValue(value, metric) {
-            if (value === null || value === undefined) return null;
-            return metric.ohms ? value / 1000 : value;
+        const canvas = document.getElementById('particleCanvas');
+        const ctx = canvas.getContext('2d');
+        let particles = [];
+
+        function resizeCanvas() {
+            canvas.width = canvas.clientWidth * devicePixelRatio;
+            canvas.height = canvas.clientHeight * devicePixelRatio;
+            ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
         }
 
-        function createChartConfig(label, borderColor, yAxisTitle, yMin, yMax) {
-            return {
-                type: 'line',
-                data: {
-                    labels: [],
-                    datasets: [{
-                        label,
-                        data: [],
-                        borderColor,
-                        backgroundColor: borderColor.replace('rgb', 'rgba').replace(')', ', 0.1)'),
-                        tension: 0.4,
-                        spanGaps: false,
-                        fill: true
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: true, position: 'top' } },
-                    scales: {
-                        x: { display: true, title: { display: true, text: 'Time' } },
-                        y: {
-                            display: true,
-                            title: { display: true, text: yAxisTitle },
-                            ...(yMin !== undefined ? { min: yMin } : {}),
-                            ...(yMax !== undefined ? { max: yMax } : {})
-                        }
+        function spawnParticles(count) {
+            particles = [];
+            const w = canvas.clientWidth;
+            const h = canvas.clientHeight;
+            for (let i = 0; i < count; i++) {
+                particles.push({
+                    x: Math.random() * w,
+                    y: Math.random() * h,
+                    r: 1 + Math.random() * 2.8,
+                    vx: (Math.random() - 0.5) * 0.4,
+                    vy: 0.2 + Math.random() * 0.7,
+                    a: 0.25 + Math.random() * 0.45,
+                });
+            }
+        }
+
+        function burstParticles(n = 28) {
+            const w = canvas.clientWidth;
+            const h = canvas.clientHeight;
+            for (let i = 0; i < n; i++) {
+                particles.push({
+                    x: w * 0.5 + (Math.random() - 0.5) * 80,
+                    y: h * 0.42,
+                    r: 2 + Math.random() * 3,
+                    vx: (Math.random() - 0.5) * 4,
+                    vy: -1 - Math.random() * 3,
+                    a: 0.8,
+                });
+            }
+        }
+
+        function tickParticles() {
+            const w = canvas.clientWidth;
+            const h = canvas.clientHeight;
+            ctx.clearRect(0, 0, w, h);
+            particles.forEach(p => {
+                p.x += p.vx;
+                p.y += p.vy;
+                if (p.y > h) { p.y = -4; p.x = Math.random() * w; }
+                if (p.x < 0) p.x = w;
+                if (p.x > w) p.x = 0;
+                ctx.beginPath();
+                ctx.fillStyle = `rgba(255,255,255,${p.a})`;
+                ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            // Keep density roughly stable unless bursting
+            if (particles.length > particleDensity * 3) {
+                particles.splice(0, particles.length - particleDensity * 2);
+            }
+            requestAnimationFrame(tickParticles);
+        }
+
+        function setAirQuality(aq, pm25) {
+            const light = document.getElementById('trafficLight');
+            const color = aq?.color || '#6b6a6a';
+            light.style.background = color;
+            light.style.setProperty('--aq', color);
+            document.getElementById('aqLabel').textContent = aq?.label || 'Waiting';
+            document.getElementById('aqMessage').textContent = aq?.message || '';
+            document.getElementById('pmValue').textContent =
+                (pm25 === null || pm25 === undefined) ? '--' : Number(pm25).toFixed(1);
+
+            if (pm25 == null) particleDensity = 10;
+            else if (pm25 <= 12) particleDensity = 10;
+            else if (pm25 <= 35) particleDensity = 28;
+            else particleDensity = 55;
+            if (Math.abs(particles.length - particleDensity) > 8) spawnParticles(particleDensity);
+        }
+
+        function displayMetric(value, metric) {
+            if (value === null || value === undefined) return '--';
+            const shown = metric.ohms ? value / 1000 : value;
+            return Number(shown).toFixed(metric.decimals);
+        }
+
+        function ensureCards() {
+            const root = document.getElementById('sensorCards');
+            if (root.dataset.ready) return;
+            root.innerHTML = METRICS.map(m => `
+                <div class="sensor-card">
+                    <div class="sensor-title">${m.label}</div>
+                    <div class="sensor-value">
+                        <span id="${m.key}Value">--</span>
+                        <span class="sensor-unit">${m.unit}</span>
+                    </div>
+                    <div class="meter-bar"><div class="meter-fill" id="${m.key}Meter"></div></div>
+                </div>
+            `).join('');
+            root.dataset.ready = '1';
+        }
+
+        function updateMeters(data) {
+            if (!data) return;
+            ensureCards();
+            METRICS.forEach(m => {
+                const raw = data[m.key];
+                if (raw === null || raw === undefined) return;
+                const pct = Math.min(100, Math.max(0, ((raw - m.min) / (m.max - m.min)) * 100));
+                document.getElementById(`${m.key}Value`).textContent = displayMetric(raw, m);
+                document.getElementById(`${m.key}Meter`).style.width = pct + '%';
+            });
+        }
+
+        function setWave(waving, count) {
+            const banner = document.getElementById('waveBanner');
+            const light = document.getElementById('trafficLight');
+            document.getElementById('waveCount').textContent = count ?? 0;
+            if (waving) {
+                banner.textContent = 'Hand wave detected!';
+                banner.classList.add('hot');
+                light.classList.add('waving');
+                burstParticles();
+            } else {
+                banner.textContent = 'Wave your hand over the Enviro+ light sensor';
+                banner.classList.remove('hot');
+                light.classList.remove('waving');
+            }
+        }
+
+        async function loadLive() {
+            if (replaying) return;
+            try {
+                const res = await fetch('/api/live');
+                const result = await res.json();
+                setAirQuality(result.air_quality, result.data?.pm25);
+                if (result.data) {
+                    updateMeters(result.data);
+                    if (result.data.timestamp) {
+                        document.getElementById('dataReceivedTime').textContent =
+                            new Date(result.data.timestamp * 1000).toLocaleTimeString();
                     }
                 }
-            };
+                setWave(result.waving, result.wave_count);
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        function renderTrophies(trophies) {
+            const grid = document.getElementById('trophyGrid');
+            if (!trophies?.length) {
+                grid.innerHTML = '<p class="lead">No trophies yet — keep the collector running.</p>';
+                return;
+            }
+            grid.innerHTML = trophies.map(t => `
+                <div class="trophy">
+                    <div class="title">${t.title}</div>
+                    <div class="value">${t.value}</div>
+                    <div class="unit">${t.unit}</div>
+                    <div class="when">${t.when || ''}</div>
+                </div>
+            `).join('');
+        }
+
+        async function loadToday() {
+            try {
+                const res = await fetch('/api/today');
+                const result = await res.json();
+                stories = result.stories || [];
+                storyIndex = 0;
+                document.getElementById('storyRail').textContent = stories[0] || 'Collecting today’s story…';
+                renderTrophies(result.trophies);
+                return result;
+            } catch (err) {
+                console.error(err);
+                return null;
+            }
+        }
+
+        function rotateStories() {
+            if (!stories.length || replaying) return;
+            storyIndex = (storyIndex + 1) % stories.length;
+            document.getElementById('storyRail').textContent = stories[storyIndex];
+        }
+
+        async function replayToday() {
+            if (replaying) return;
+            const result = await loadToday();
+            const data = result?.data || [];
+            if (data.length < 2) {
+                document.getElementById('aqMessage').textContent = 'Need a bit more of today’s data before replaying.';
+                return;
+            }
+
+            replaying = true;
+            const btn = document.getElementById('replayBtn');
+            const bar = document.getElementById('replayBar');
+            const progress = document.getElementById('replayProgress');
+            btn.disabled = true;
+            btn.textContent = 'Replaying…';
+            bar.classList.add('active');
+
+            const duration = (result.replay_seconds || 10) * 1000;
+            const start = performance.now();
+
+            function frame(now) {
+                const t = Math.min(1, (now - start) / duration);
+                progress.style.width = (t * 100) + '%';
+                const idx = Math.min(data.length - 1, Math.floor(t * (data.length - 1)));
+                const point = data[idx];
+                const fakeAq = {
+                    level: point.pm25 <= 12 ? 'good' : point.pm25 <= 35 ? 'ok' : 'poor',
+                    label: point.pm25 <= 12 ? 'Good' : point.pm25 <= 35 ? 'OK' : 'Poor',
+                    color: point.pm25 <= 12 ? '#1fad6b' : point.pm25 <= 35 ? '#e0a800' : '#e23d3d',
+                    message: `Replay ${new Date(point.timestamp * 1000).toLocaleTimeString()} — PM2.5 ${Number(point.pm25).toFixed(1)}`,
+                };
+                setAirQuality(fakeAq, point.pm25);
+                updateMeters(point);
+                document.getElementById('dataReceivedTime').textContent =
+                    new Date(point.timestamp * 1000).toLocaleTimeString();
+
+                if (t < 1) {
+                    requestAnimationFrame(frame);
+                } else {
+                    replaying = false;
+                    btn.disabled = false;
+                    btn.textContent = 'Replay today';
+                    bar.classList.remove('active');
+                    progress.style.width = '0%';
+                    loadLive();
+                }
+            }
+            requestAnimationFrame(frame);
         }
 
         function initChart() {
-            const ctx = document.getElementById('historicalChart').getContext('2d');
-            historicalChart = new Chart(ctx, {
+            historicalChart = new Chart(document.getElementById('historicalChart'), {
                 type: 'line',
                 data: {
                     labels: [],
-                    datasets: MAIN_DATASETS.map(ds => ({
-                        label: ds.label,
-                        data: [],
-                        borderColor: ds.color,
-                        backgroundColor: ds.color.replace('rgb', 'rgba').replace(')', ', 0.1)'),
-                        tension: 0.4,
-                        spanGaps: false,
-                        yAxisID: ds.axis
-                    }))
+                    datasets: [
+                        { label: 'Temperature (°C)', data: [], borderColor: 'rgb(200,59,101)', tension: 0.35, spanGaps: false, yAxisID: 'y2' },
+                        { label: 'Humidity (%)', data: [], borderColor: 'rgb(31,122,156)', tension: 0.35, spanGaps: false, yAxisID: 'y1' },
+                        { label: 'PM2.5', data: [], borderColor: 'rgb(153,102,255)', tension: 0.35, spanGaps: false, yAxisID: 'y' },
+                        { label: 'PM10', data: [], borderColor: 'rgb(255,159,64)', tension: 0.35, spanGaps: false, yAxisID: 'y' },
+                    ]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
                     interaction: { mode: 'index', intersect: false },
-                    plugins: {
-                        legend: { display: true, position: 'top', labels: { color: '#666' } },
-                        tooltip: { enabled: true, mode: 'index', intersect: false }
-                    },
+                    plugins: { legend: { position: 'top' } },
                     scales: {
-                        x: {
-                            display: true,
-                            title: { display: true, text: 'Time', color: '#666' },
-                            ticks: { color: '#666' },
-                            grid: { color: 'rgba(0,0,0,0.1)' }
-                        },
-                        y: {
-                            type: 'linear', display: true, position: 'left',
-                            title: { display: true, text: 'PM (µg/m³)', color: '#666' },
-                            ticks: { color: '#666' },
-                            grid: { drawOnChartArea: false }
-                        },
-                        y1: {
-                            type: 'linear', display: true, position: 'left',
-                            title: { display: true, text: 'Humidity (%)', color: '#666' },
-                            ticks: { color: '#666' },
-                            grid: { drawOnChartArea: false }
-                        },
-                        y2: {
-                            type: 'linear', display: true, position: 'right',
-                            title: { display: true, text: 'Temperature (°C)', color: '#666' },
-                            ticks: { color: '#666' },
-                            grid: { color: 'rgba(0,0,0,0.1)' }
-                        }
+                        y: { position: 'left', title: { display: true, text: 'PM µg/m³' } },
+                        y1: { position: 'left', title: { display: true, text: 'Humidity %' }, grid: { drawOnChartArea: false } },
+                        y2: { position: 'right', title: { display: true, text: 'Temp °C' } },
                     }
                 }
             });
-
-            EXTRA_CHARTS.forEach(cfg => {
-                const el = document.getElementById(cfg.id);
-                extraChartInstances[cfg.id] = new Chart(
-                    el.getContext('2d'),
-                    createChartConfig(cfg.label, cfg.color, cfg.label, cfg.min, cfg.max)
-                );
-            });
-        }
-
-        function toggleAdditionalCharts() {
-            const additionalCharts = document.getElementById('additionalCharts');
-            const expandButton = document.getElementById('expandButton');
-            additionalChartsExpanded = !additionalChartsExpanded;
-            additionalCharts.classList.toggle('expanded', additionalChartsExpanded);
-            expandButton.classList.toggle('expanded', additionalChartsExpanded);
-            if (additionalChartsExpanded) loadAdditionalChartsData();
-        }
-
-        function updateMeters(data) {
-            if (!data) return;
-            METRICS.forEach(metric => {
-                const raw = data[metric.key];
-                if (raw === null || raw === undefined) return;
-                const shown = displayValue(raw, metric);
-                const percent = Math.min(100, Math.max(0, ((raw - metric.min) / (metric.max - metric.min)) * 100));
-                document.getElementById(metric.el + 'Meter').style.width = percent + '%';
-                document.getElementById(metric.el + 'Value').textContent = Number(shown).toFixed(metric.decimals);
-            });
-        }
-
-        async function loadCurrentData() {
-            try {
-                const response = await fetch('/api/current');
-                const result = await response.json();
-                if (result.success && result.data) {
-                    updateMeters(result.data);
-                    document.getElementById('dataReceivedTime').textContent =
-                        new Date(result.data.timestamp * 1000).toLocaleString();
-                } else {
-                    document.getElementById('dataReceivedTime').textContent = 'No data available';
-                }
-            } catch (error) {
-                console.error('Error loading current data:', error);
-            }
-        }
-
-        async function loadStats(hours) {
-            try {
-                const response = await fetch(`/api/stats?hours=${hours}`);
-                const result = await response.json();
-                if (!(result.success && result.stats)) return;
-                const stats = result.stats;
-                const map = [
-                    ['Temp', 'temp', false, 1],
-                    ['Humidity', 'humidity', false, 1],
-                    ['Pressure', 'pressure', false, 1],
-                    ['Light', 'light', false, 0],
-                    ['Oxidising', 'oxidising', true, 1],
-                    ['Reducing', 'reducing', true, 1],
-                    ['Nh3', 'nh3', true, 1],
-                    ['Pm1', 'pm1', false, 1],
-                    ['Pm25', 'pm25', false, 1],
-                    ['Pm10', 'pm10', false, 1],
-                ];
-                map.forEach(([prefix, key, ohms, decimals]) => {
-                    ['min', 'max', 'avg'].forEach(kind => {
-                        let val = stats[`${kind}_${key}`];
-                        if (val === null || val === undefined) {
-                            document.getElementById(`stat${prefix}${kind[0].toUpperCase() + kind.slice(1)}`).textContent = '--';
-                            return;
-                        }
-                        if (ohms) val = val / 1000;
-                        document.getElementById(`stat${prefix}${kind[0].toUpperCase() + kind.slice(1)}`).textContent =
-                            Number(val).toFixed(decimals);
-                    });
-                });
-            } catch (error) {
-                console.error('Error loading stats:', error);
-            }
         }
 
         function buildSeries(data, getValue) {
-            const gapThreshold = 3 * 60 * 1000; // 3 minutes for 60s sampling
+            const gapThreshold = 3 * 60 * 1000;
             const labels = [];
             const values = [];
             for (let i = 0; i < data.length; i++) {
                 labels.push(new Date(data[i].timestamp * 1000).toLocaleTimeString());
                 values.push(getValue(data[i]));
-                if (i < data.length - 1) {
-                    const diff = (data[i + 1].timestamp - data[i].timestamp) * 1000;
-                    if (diff > gapThreshold) {
-                        labels.push(null);
-                        values.push(null);
-                    }
+                if (i < data.length - 1 && (data[i + 1].timestamp - data[i].timestamp) * 1000 > gapThreshold) {
+                    labels.push(null);
+                    values.push(null);
                 }
             }
             return { labels, values };
@@ -1058,119 +810,51 @@
 
         async function loadHistoricalData(hours, buttonElement) {
             currentHours = hours;
-            document.querySelectorAll('.time-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.time-btn').forEach(b => b.classList.remove('active'));
             if (buttonElement) buttonElement.classList.add('active');
-            loadStats(hours);
-
             try {
-                const response = await fetch(`/api/historical?hours=${hours}`);
-                const result = await response.json();
-                if (!(result.success && result.data && result.data.length)) return;
-
+                const res = await fetch(`/api/historical?hours=${hours}`);
+                const result = await res.json();
+                if (!(result.success && result.data?.length)) return;
                 const base = buildSeries(result.data, d => d.temperature);
                 historicalChart.data.labels = base.labels;
-                MAIN_DATASETS.forEach((ds, idx) => {
-                    historicalChart.data.datasets[idx].data = buildSeries(result.data, d => d[ds.key]).values;
-                });
+                historicalChart.data.datasets[0].data = base.values;
+                historicalChart.data.datasets[1].data = buildSeries(result.data, d => d.humidity).values;
+                historicalChart.data.datasets[2].data = buildSeries(result.data, d => d.pm25).values;
+                historicalChart.data.datasets[3].data = buildSeries(result.data, d => d.pm10).values;
                 historicalChart.update();
-
-                if (additionalChartsExpanded) updateAdditionalCharts(result.data);
-            } catch (error) {
-                console.error('Error loading historical data:', error);
+            } catch (err) {
+                console.error(err);
             }
-        }
-
-        function loadAdditionalChartsData(data) {
-            if (!data) {
-                fetch(`/api/historical?hours=${currentHours}`)
-                    .then(r => r.json())
-                    .then(result => {
-                        if (result.success && result.data) updateAdditionalCharts(result.data);
-                    })
-                    .catch(err => console.error(err));
-            } else {
-                updateAdditionalCharts(data);
-            }
-        }
-
-        function updateAdditionalCharts(data) {
-            EXTRA_CHARTS.forEach(cfg => {
-                const chart = extraChartInstances[cfg.id];
-                if (!chart) return;
-                const series = buildSeries(data, d => {
-                    const raw = d[cfg.key];
-                    if (raw === null || raw === undefined) return null;
-                    return cfg.ohms ? raw / 1000 : raw;
-                });
-                chart.data.labels = series.labels;
-                chart.data.datasets[0].data = series.values;
-                chart.update();
-            });
         }
 
         function toggleTheme() {
             const html = document.documentElement;
-            const currentTheme = html.getAttribute('data-theme');
-            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-            html.setAttribute('data-theme', newTheme);
-            localStorage.setItem('theme', newTheme);
-            updateThemeIcon(newTheme);
-            updateChartColors(newTheme);
-        }
-
-        function updateThemeIcon(theme) {
-            const svg = document.getElementById('themeIcon');
-            if (!svg) return;
-            if (theme === 'dark') {
-                svg.innerHTML = '<path d="M8 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8M8 0a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 0m0 13a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 13m8-5a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2a.5.5 0 0 1 .5.5M3 8a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2A.5.5 0 0 1 3 8m10.657-5.657a.5.5 0 0 1 0 .707l-1.414 1.415a.5.5 0 1 1-.707-.708l1.414-1.414a.5.5 0 0 1 .707 0m-9.193 9.193a.5.5 0 0 1 0 .707L3.05 13.657a.5.5 0 0 1-.707-.707l1.414-1.414a.5.5 0 0 1 .707 0m9.193 2.121a.5.5 0 0 1-.707 0l-1.414-1.414a.5.5 0 0 1 .707-.707l1.414 1.414a.5.5 0 0 1 0 .707M4.464 4.465a.5.5 0 0 1-.707 0L2.343 3.05a.5.5 0 1 1 .707-.707l1.414 1.414a.5.5 0 0 1 0 .708"/>';
-            } else {
-                svg.innerHTML = '<path d="M6 .278a.77.77 0 0 1 .08.858 7.2 7.2 0 0 0-.878 3.46c0 4.021 3.278 7.277 7.318 7.277q.792-.001 1.533-.16a.79.79 0 0 1 .81.316.73.73 0 0 1-.031.893A8.35 8.35 0 0 1 8.344 16C3.734 16 0 12.286 0 7.71 0 4.266 2.114 1.312 5.124.06A.75.75 0 0 1 6 .278"/>';
-            }
-        }
-
-        function updateChartColors(theme) {
-            const isDark = theme === 'dark';
-            const gridColor = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)';
-            const textColor = isDark ? '#b0b0b0' : '#666';
-            if (historicalChart) {
-                ['x', 'y', 'y1', 'y2'].forEach(axis => {
-                    if (!historicalChart.options.scales[axis]) return;
-                    if (historicalChart.options.scales[axis].grid) {
-                        historicalChart.options.scales[axis].grid.color = axis === 'y2' ? gridColor : historicalChart.options.scales[axis].grid.color;
-                    }
-                    if (historicalChart.options.scales[axis].ticks) historicalChart.options.scales[axis].ticks.color = textColor;
-                    if (historicalChart.options.scales[axis].title) historicalChart.options.scales[axis].title.color = textColor;
-                });
-                historicalChart.options.scales.x.grid.color = gridColor;
-                historicalChart.options.plugins.legend.labels.color = textColor;
-                historicalChart.update('none');
-            }
-            Object.values(extraChartInstances).forEach(chart => {
-                chart.options.scales.x.ticks.color = textColor;
-                chart.options.scales.x.title.color = textColor;
-                chart.options.scales.y.ticks.color = textColor;
-                chart.options.scales.y.title.color = textColor;
-                chart.options.plugins.legend.labels.color = textColor;
-                chart.update('none');
-            });
-        }
-
-        function initTheme() {
-            const savedTheme = localStorage.getItem('theme') || 'light';
-            document.documentElement.setAttribute('data-theme', savedTheme);
-            updateThemeIcon(savedTheme);
+            const next = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+            html.setAttribute('data-theme', next);
+            localStorage.setItem('theme', next);
         }
 
         window.addEventListener('DOMContentLoaded', () => {
-            initTheme();
+            document.documentElement.setAttribute('data-theme', localStorage.getItem('theme') || 'light');
+            resizeCanvas();
+            spawnParticles(particleDensity);
+            tickParticles();
+            window.addEventListener('resize', () => {
+                resizeCanvas();
+                spawnParticles(particleDensity);
+            });
+
+            ensureCards();
             initChart();
-            setTimeout(() => updateChartColors(document.documentElement.getAttribute('data-theme') || 'light'), 100);
-            loadCurrentData();
+            loadLive();
+            loadToday();
             loadHistoricalData(24);
-            setInterval(loadCurrentData, 5000);
-            setInterval(() => {
-                loadHistoricalData(currentHours);
-            }, 30000);
+
+            setInterval(loadLive, 400);
+            setInterval(loadToday, 30000);
+            setInterval(rotateStories, 6000);
+            setInterval(() => loadHistoricalData(currentHours), 60000);
         });
     </script>
 </body>

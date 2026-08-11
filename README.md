@@ -6,7 +6,8 @@ This replaces the earlier Enviro Indoor (Pico W → WiFi POST) setup. Same idea 
 
 ## Features
 
-- Live readings: temperature, humidity, pressure, light, oxidising / reducing / NH3 gas resistances, PM1 / PM2.5 / PM10
+- **Maker Faire mode**: giant PM2.5 traffic light, particle backdrop, today’s trophies, 10-second day replay, hand-wave detector (LTR-559 proximity)
+- Live readings: temperature, humidity, pressure, light, oxidising / reducing / NH3, PM1 / PM2.5 / PM10
 - Historical charts (1h → 7d) with gap handling
 - SQLite storage with automatic 8-day retention cleanup
 - systemd services for the web app and sensor collector
@@ -104,11 +105,15 @@ envrio_demo/
 
 | Method | Path | Purpose |
 |--------|------|---------|
-| `GET` | `/` | Dashboard |
+| `GET` | `/` | Maker Faire dashboard |
+| `GET` | `/api/live` | Fast booth poll (sensors + proximity / waves) |
+| `GET` | `/api/today` | Today’s series, trophies, stories, replay payload |
 | `GET` | `/api/current` | Latest reading |
 | `GET` | `/api/historical?hours=24` | Time series |
 | `GET` | `/api/stats?hours=24` | Min / max / avg |
 | `POST` | `/api/data` | Optional ingest (tests); collector writes the DB directly |
+
+Wave your hand over the Enviro+ light/proximity sensor — the hero orb reacts and the wave counter ticks up.
 
 Stored fields: `temperature`, `humidity`, `pressure`, `light`, `oxidising`, `reducing`, `nh3`, `pm1`, `pm25`, `pm10`.
 

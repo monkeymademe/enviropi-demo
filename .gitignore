@@ -10,10 +10,11 @@ ENV/
 .venv
 *.egg-info/
 
-# Database
+# Database / live booth state
 *.db
 *.sqlite
 *.sqlite3
+live_state.json
 
 # Logs
 *.log
