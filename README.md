@@ -7,6 +7,7 @@ This replaces the earlier Enviro Indoor (Pico W → WiFi POST) setup. Same idea 
 ## Features
 
 - **Maker Faire mode**: giant PM2.5 traffic light, particle backdrop, today’s trophies, 10-second day replay, hand-wave detector (LTR-559 proximity)
+- **Enviro+ LCD**: rotating booth screens (air quality / weather / wave count) plus a WAVE! flash when someone waves
 - Live readings: temperature, humidity, pressure, light, oxidising / reducing / NH3, PM1 / PM2.5 / PM10
 - Historical charts (1h → 7d) with gap handling
 - SQLite storage with automatic 8-day retention cleanup
@@ -91,7 +92,8 @@ sudo systemctl restart enviro-dashboard
 envrio_demo/
 ├── install.sh                 # One-shot Pi setup
 ├── web_app.py                 # Flask API + UI
-├── sensor_collector.py        # Enviro+ / PMS5003 → SQLite
+├── sensor_collector.py        # Enviro+ / PMS5003 → SQLite + LCD
+├── lcd_display.py             # Enviro+ 0.96" screen UI
 ├── cleanup_database.py        # Retention cleanup
 ├── simulate_data.py           # Fake data for UI testing
 ├── requirements.txt

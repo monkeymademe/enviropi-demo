@@ -4,6 +4,7 @@ Collect readings from Enviro+ (BME280, LTR-559, MICS6814) and PMS5003.
 
 Full samples go to SQLite on SAMPLE_INTERVAL.
 Proximity is polled faster and published to live_state.json for Maker Faire hand-waves.
+The Enviro+ LCD shows rotating live screens.
 """
 
 from __future__ import annotations
@@ -13,6 +14,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 
+from lcd_display import EnviroDisplay
 from web_app import DB_PATH, init_database, store_sensor_data, write_live_state
 
 # Full sensor sample cadence
@@ -119,6 +121,7 @@ def main() -> None:
         PROXIMITY_POLL,
     )
     bme280, ltr559, gas, pms5003 = init_sensors()
+    display = EnviroDisplay()
     cpu_temps = [get_cpu_temperature()] * 5
 
     latest = {
@@ -146,6 +149,7 @@ def main() -> None:
             if waving and not was_waving:
                 wave_count += 1
                 logger.info("Hand wave detected! (count=%s, proximity=%.0f)", wave_count, proximity)
+                display.notify_wave()
             was_waving = waving
 
             if loop_start >= next_sample:
@@ -170,6 +174,7 @@ def main() -> None:
                     "wave_count": wave_count,
                 }
             )
+            display.update(latest, waving=waving, wave_count=wave_count)
         except Exception as exc:  # noqa: BLE001
             logger.exception("Sensor collection error: %s", exc)
 
