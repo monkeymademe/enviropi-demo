@@ -14,8 +14,11 @@ from pathlib import Path
 from flask import Flask, jsonify, render_template, request
 
 app = Flask(__name__)
-DB_PATH = "sensor_data.db"
-LIVE_STATE_PATH = Path("live_state.json")
+
+# Always use files next to this app, regardless of process cwd
+BASE_DIR = Path(__file__).resolve().parent
+DB_PATH = str(BASE_DIR / "sensor_data.db")
+LIVE_STATE_PATH = BASE_DIR / "live_state.json"
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -583,5 +586,6 @@ if __name__ == "__main__":
     Path("templates").mkdir(exist_ok=True)
     init_database()
     logger.info("Starting Enviro+ Maker Faire dashboard...")
+    logger.info("Database: %s", DB_PATH)
     logger.info("Dashboard: http://<pi-ip>:5000")
     app.run(host="0.0.0.0", port=5000, debug=False)
