@@ -4,11 +4,12 @@ Database cleanup script for Enviro+ sensor data.
 Removes all data older than 8 days, keeping only recent readings.
 """
 
-import sqlite3
-from datetime import datetime, timedelta
 import logging
+import sqlite3
+from datetime import datetime
 
-DB_PATH = "sensor_data.db"
+from web_app import DB_PATH
+
 DAYS_TO_KEEP = 8
 
 # Set up logging
